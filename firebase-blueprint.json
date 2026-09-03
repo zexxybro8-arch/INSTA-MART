@@ -1,0 +1,222 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with balance and credentials",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "username": { "type": "string" },
+        "name": { "type": "string" },
+        "mobile": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "currency": { "type": "string", "enum": ["INR", "USD", "EUR", "GBP"] },
+        "balance": { "type": "number" },
+        "isBlocked": { "type": "boolean" },
+        "totalOrders": { "type": "number" },
+        "totalSpent": { "type": "number" },
+        "totalDeposits": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "lastLoginAt": { "type": "number" }
+      },
+      "required": ["id", "uid", "email", "username", "role", "currency", "balance", "createdAt"]
+    },
+    "UsernameIndex": {
+      "title": "UsernameIndex",
+      "description": "Public username lookup mapping for auth and uniqueness verification",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Platform global configuration and payment details",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "upiId": { "type": "string" },
+        "upiQrCodeUrl": { "type": "string" },
+        "cryptoUsdtAddress": { "type": "string" },
+        "cryptoQrCodeUrl": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      }
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Platform category for social media services",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "icon": { "type": "string" },
+        "description": { "type": "string" },
+        "sortOrder": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      }
+    },
+    "Subcategory": {
+      "title": "Subcategory",
+      "description": "Subcategory under a primary platform category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "icon": { "type": "string" },
+        "description": { "type": "string" },
+        "sortOrder": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      }
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Service package that users can order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subcategoryId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "pricePer1000": { "type": "number" },
+        "minimumQuantity": { "type": "number" },
+        "maximumQuantity": { "type": "number" },
+        "speed": { "type": "string" },
+        "startTime": { "type": "string" },
+        "refill": { "type": "string" },
+        "guarantee": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      }
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "subcategoryId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "link": { "type": "string" },
+        "quantity": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Ledger entry for wallet transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "Deposit": {
+      "title": "Deposit",
+      "description": "Funds deposit request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Support ticket",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "subject": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "TicketMessage": {
+      "title": "TicketMessage",
+      "description": "Message within a support ticket",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ticketId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile with private balances and data"
+    },
+    "/usernames/{username}": {
+      "schema": "UsernameIndex",
+      "description": "Public username availability index and mapping"
+    },
+    "/siteSettings/{settingId}": {
+      "schema": "SiteSettings",
+      "description": "Site-wide configuration"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Product categories"
+    },
+    "/subcategories/{subcategoryId}": {
+      "schema": "Subcategory",
+      "description": "Product subcategories"
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Platform service catalog"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Wallet ledger transactions"
+    },
+    "/deposits/{depositId}": {
+      "schema": "Deposit",
+      "description": "Wallet top-up deposits"
+    },
+    "/tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "Customer support tickets"
+    },
+    "/ticketMessages/{messageId}": {
+      "schema": "TicketMessage",
+      "description": "Messages inside support tickets"
+    }
+  }
+}

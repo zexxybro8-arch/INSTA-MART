@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == 'panelaccess379@gmail.com' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function isInitialSetup() {
+      return !exists(/databases/$(database)/documents/siteSettings/general);
+    }
+
+    function isCatalogEmpty() {
+      return !exists(/databases/$(database)/documents/categories/cat-instagram);
+    }
+
+    // Public configurations
+    match /siteSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin() || isInitialSetup();
+    }
+
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+    
+    match /menuItems/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCatalogEmpty();
+    }
+    
+    match /currencySettings/{currId} {
+      allow read: if true;
+      allow write: if isAdmin() || isInitialSetup();
+    }
+
+    // Catalog items
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCatalogEmpty();
+    }
+
+    match /subcategories/{subcategoryId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCatalogEmpty();
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCatalogEmpty();
+    }
+
+    // Usernames mapping (for public uniqueness check and login by username)
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Transactions
+    match /transactions/{transactionId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Deposits
+    match /deposits/{depositId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Support Tickets
+    match /tickets/{ticketId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Ticket messages
+    match /ticketMessages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Activity Logs
+    match /activityLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

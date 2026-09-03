@@ -1,0 +1,6 @@
+{
+  "name": "INSTA MART",
+  "description": "Production-ready Social Media Marketing panel with custom categories, services, wallet, manual fulfillment workflow, and role-based access.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
