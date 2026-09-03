@@ -65,6 +65,7 @@ export const INITIAL_CATALOG: SeedCatalogData = {
       name: 'Instagram',
       slug: 'instagram',
       icon: 'Instagram',
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
       description: 'Followers, Likes, Reel Views, Comments & Story Engagements',
       sortOrder: 1,
       isActive: true,
@@ -76,6 +77,7 @@ export const INITIAL_CATALOG: SeedCatalogData = {
       name: 'YouTube',
       slug: 'youtube',
       icon: 'Youtube',
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/640px-YouTube_full-color_icon_%282017%29.svg.png',
       description: 'Views, Subscribers, Watch Hours, Likes & Comments',
       sortOrder: 2,
       isActive: true,
@@ -87,6 +89,7 @@ export const INITIAL_CATALOG: SeedCatalogData = {
       name: 'Telegram',
       slug: 'telegram',
       icon: 'Send',
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Telegram_logo.svg/600px-Telegram_logo.svg.png',
       description: 'Channel Members, Group Members, Post Views & Reactions',
       sortOrder: 3,
       isActive: true,
@@ -98,6 +101,7 @@ export const INITIAL_CATALOG: SeedCatalogData = {
       name: 'Facebook',
       slug: 'facebook',
       icon: 'Facebook',
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Facebook_Logo_%282019%29.png/600px-Facebook_Logo_%282019%29.png',
       description: 'Page Followers, Post Likes, Video Views & Shares',
       sortOrder: 4,
       isActive: true,
@@ -109,6 +113,7 @@ export const INITIAL_CATALOG: SeedCatalogData = {
       name: 'TikTok',
       slug: 'tiktok',
       icon: 'Video',
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/TikTok_Logo.svg/600px-TikTok_Logo.svg.png',
       description: 'Video Views, Followers, Likes, Saves & Shares',
       sortOrder: 5,
       isActive: true,
@@ -120,6 +125,7 @@ export const INITIAL_CATALOG: SeedCatalogData = {
       name: 'Twitter / X',
       slug: 'twitter-x',
       icon: 'Twitter',
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/X_logo_2023.svg/600px-X_logo_2023.svg.png',
       description: 'Followers, Retweets, Likes, Poll Votes & Impressions',
       sortOrder: 6,
       isActive: true,
@@ -131,6 +137,7 @@ export const INITIAL_CATALOG: SeedCatalogData = {
       name: 'Spotify',
       slug: 'spotify',
       icon: 'Music',
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/600px-Spotify_logo_without_text.svg.png',
       description: 'Track Plays, Monthly Listeners, Playlist Followers',
       sortOrder: 7,
       isActive: true,
@@ -475,6 +482,25 @@ export async function seedInitialCatalogIfEmpty(): Promise<boolean> {
 
       await batch.commit();
       return true;
+    } else {
+      // Safe non-destructive logo backfill for pre-existing catalog categories that lack logoUrl
+      const initialMap = new Map(INITIAL_CATALOG.categories.map((c) => [c.id, c.logoUrl]));
+      const batch = writeBatch(db);
+      let needsUpdate = false;
+
+      for (const docSnap of catSnap.docs) {
+        const data = docSnap.data();
+        if (data && (!('logoUrl' in data) || data.logoUrl === undefined || data.logoUrl === '')) {
+          const defaultLogo = initialMap.get(docSnap.id) || (data.slug ? initialMap.get(`cat-${data.slug}`) : undefined);
+          if (defaultLogo) {
+            batch.update(docSnap.ref, { logoUrl: defaultLogo });
+            needsUpdate = true;
+          }
+        }
+      }
+      if (needsUpdate) {
+        await batch.commit();
+      }
     }
 
     return false;

@@ -20,6 +20,7 @@ import { MassOrderView } from './views/user/MassOrderView';
 import { ApiDocView } from './views/user/ApiDocView';
 import { ExtraFeaturesView } from './views/user/ExtraFeaturesView';
 import { AdminDashboardView } from './views/admin/AdminDashboardView';
+import { isAdminSessionActive, logoutAdminSession } from './lib/adminAuth';
 import { seedInitialCatalogIfEmpty } from './lib/initialData';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './lib/firebase';
@@ -54,7 +55,7 @@ function parseLocationToRouteAndSubview(pathname: string, search: string): { rou
   if (cleanPath === '/forgot-password' || cleanPath === '/forgot') {
     return { route: 'forgot-password', subview: 'create' };
   }
-  if (cleanPath === '/admin' || cleanPath.startsWith('/admin/')) {
+  if (cleanPath === '/admin' || cleanPath.startsWith('/admin')) {
     return { route: 'admin', subview: 'create' };
   }
   if (cleanPath === '/dashboard') {
@@ -81,19 +82,35 @@ function parseLocationToRouteAndSubview(pathname: string, search: string): { rou
 }
 
 function MainLayout() {
-  const { currentUser, isAdmin, isLoading } = useAuth();
+  const { currentUser, isLoading } = useAuth();
 
   // Initialize route from current browser window URL
   const [routeState, setRouteState] = useState(() =>
     parseLocationToRouteAndSubview(window.location.pathname, window.location.search)
   );
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => isAdminSessionActive());
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [orderCount, setOrderCount] = useState<number>(0);
+
+  // Sync admin auth session across windows/storage events
+  useEffect(() => {
+    const checkAdminStatus = () => {
+      setIsAdminLoggedIn(isAdminSessionActive());
+    };
+
+    window.addEventListener('admin_auth_state_changed', checkAdminStatus);
+    window.addEventListener('storage', checkAdminStatus);
+    return () => {
+      window.removeEventListener('admin_auth_state_changed', checkAdminStatus);
+      window.removeEventListener('storage', checkAdminStatus);
+    };
+  }, []);
 
   // Synchronize on browser Back / Forward buttons
   useEffect(() => {
     const handlePopState = () => {
       setRouteState(parseLocationToRouteAndSubview(window.location.pathname, window.location.search));
+      setIsAdminLoggedIn(isAdminSessionActive());
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -121,8 +138,8 @@ function MainLayout() {
       } else if (target === '/forgot-password' || target === 'forgot-password') {
         targetPath = '/forgot-password';
         targetRoute = 'forgot-password';
-      } else if (target === '/admin' || target === 'admin-dashboard') {
-        targetPath = '/admin';
+      } else if (target === '/admin' || target === '/admin/login' || target === '/admin/dashboard' || target === 'admin' || target === 'admin-dashboard') {
+        targetPath = target.startsWith('/admin') ? target : '/admin/dashboard';
         targetRoute = 'admin';
       } else if (target.startsWith('/dashboard')) {
         targetPath = target;
@@ -153,26 +170,58 @@ function MainLayout() {
     []
   );
 
-  // Authentication & Role Route Guards
+  // Authentication Route Guards for User Dashboard & Admin
   useEffect(() => {
     if (isLoading) return;
 
-    // Protected Admin Route Guard
+    // 1. Protected Admin Route Guard: If user visits /admin or /admin/dashboard
     if (routeState.route === 'admin') {
-      if (!currentUser) {
-        navigateTo('/login', { replace: true });
-      } else if (!isAdmin) {
-        navigateTo('/dashboard', { replace: true });
+      if (!isAdminLoggedIn) {
+        if (currentUser) {
+          // Normal customer tries /admin/dashboard -> redirect to /dashboard (NEVER allow admin access)
+          navigateTo('/dashboard', { replace: true });
+        } else {
+          // Logged-out user tries /admin/dashboard -> redirect to /login
+          navigateTo('/login', { replace: true });
+        }
       }
+      return;
     }
 
-    // Protected User Dashboard Route Guard: if user visits /dashboard directly without auth
+    // 2. Protected User Dashboard Route Guard: If user visits /dashboard or subviews
     if (routeState.route === 'dashboard') {
-      if (!currentUser) {
+      if (isAdminLoggedIn) {
+        // If an admin manually opens /dashboard -> keep admin in /admin/dashboard
+        navigateTo('/admin/dashboard', { replace: true });
+      } else if (!currentUser) {
+        // If a logged-out user manually opens /dashboard -> redirect to /login
         navigateTo('/login', { replace: true });
       }
+      return;
     }
-  }, [isLoading, currentUser, isAdmin, routeState.route, navigateTo]);
+
+    // 3. Start Page (/) automatic routing based on authentication state
+    if (routeState.route === 'landing') {
+      if (isAdminLoggedIn) {
+        navigateTo('/admin/dashboard', { replace: true });
+      } else if (currentUser) {
+        navigateTo('/dashboard', { replace: true });
+      } else {
+        navigateTo('/login', { replace: true });
+      }
+      return;
+    }
+
+    // 4. Auth Routes (/login, /register, /forgot-password) when already authenticated
+    if (routeState.route === 'login' || routeState.route === 'register' || routeState.route === 'forgot-password') {
+      if (isAdminLoggedIn) {
+        navigateTo('/admin/dashboard', { replace: true });
+      } else if (currentUser) {
+        navigateTo('/dashboard', { replace: true });
+      }
+      return;
+    }
+  }, [isLoading, currentUser, isAdminLoggedIn, routeState.route, navigateTo]);
 
   // Dynamic Browser Tab Title
   useEffect(() => {
@@ -213,6 +262,16 @@ function MainLayout() {
     return () => unsub();
   }, [currentUser]);
 
+  // Show clean loading state while Firebase Auth initializes on app load
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400">
+        <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="text-xs font-mono tracking-wider text-slate-500 uppercase">Loading INSTA MART...</div>
+      </div>
+    );
+  }
+
   // Distinct Route Rendering: No form mixing, no tabs, fully separate pages
   if (routeState.route === 'landing') {
     return <LandingView onNavigate={navigateTo} />;
@@ -230,8 +289,26 @@ function MainLayout() {
     return <ForgotPasswordView onNavigate={navigateTo} />;
   }
 
+  // Admin Route: Protected by admin session, renders Admin Dashboard
   if (routeState.route === 'admin') {
-    return <AdminDashboardView onBackToUserPanel={() => navigateTo('/dashboard')} />;
+    if (!isAdminLoggedIn) {
+      return <LoginView onNavigate={navigateTo} />;
+    }
+
+    return (
+      <AdminDashboardView
+        onBackToUserPanel={() => {
+          logoutAdminSession();
+          setIsAdminLoggedIn(false);
+          navigateTo('/login', { replace: true });
+        }}
+        onLogout={() => {
+          logoutAdminSession();
+          setIsAdminLoggedIn(false);
+          navigateTo('/login', { replace: true });
+        }}
+      />
+    );
   }
 
   // User Dashboard layout (Authenticated user area)

@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { WalletBadge } from '../common/WalletBadge';
 import { Shield, Sparkles, User, LogOut } from 'lucide-react';
+import { isAdminSessionActive } from '../../lib/adminAuth';
 
 interface HeaderProps {
   onOpenDeposit: () => void;
@@ -11,8 +12,9 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenDeposit, onNavigate, currentView }) => {
-  const { currentUser, profile, isAdmin, logout } = useAuth();
+  const { currentUser, profile, logout } = useAuth();
   const { settings } = useSettings();
+  const isAdminActive = isAdminSessionActive();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
@@ -49,19 +51,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDeposit, onNavigate, curre
         <div className="flex items-center gap-2.5 sm:gap-3">
           {currentUser && (
             <>
-              {/* Admin Panel Quick Switcher if user has admin role */}
-              {isAdmin && (
+              {/* Admin Panel Quick Switcher if active admin session */}
+              {isAdminActive && (
                 <button
                   id="btn-switch-admin"
-                  onClick={() => onNavigate(currentView.startsWith('admin') ? 'create' : 'admin-dashboard')}
-                  className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border ${
-                    currentView.startsWith('admin')
-                      ? 'bg-purple-600/20 text-purple-300 border-purple-500/40'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                  }`}
+                  onClick={() => onNavigate('/admin/dashboard')}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border bg-purple-600/20 text-purple-300 border-purple-500/40 hover:bg-purple-600/30"
                 >
                   <Shield className="w-3.5 h-3.5 text-purple-400" />
-                  <span>{currentView.startsWith('admin') ? 'Exit Admin' : 'Admin Panel'}</span>
+                  <span>Admin Panel</span>
                 </button>
               )}
 

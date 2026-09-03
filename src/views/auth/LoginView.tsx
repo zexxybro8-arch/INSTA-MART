@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { AuthHeader } from '../../components/layout/AuthHeader';
 import { Eye, EyeOff } from 'lucide-react';
+import { loginAdminSession, verifyAdminCredentials } from '../../lib/adminAuth';
 
 interface LoginViewProps {
   onNavigate: (route: string) => void;
@@ -24,7 +25,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
       const userRole = await loginWithGoogle();
       success('Logged in successfully with Google!');
       if (userRole === 'admin') {
-        onNavigate('/admin');
+        onNavigate('/admin/dashboard');
       } else {
         onNavigate('/dashboard');
       }
@@ -47,11 +48,32 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
     }
 
     setIsLoading(true);
+
+    // 1. Direct Admin Credential Gate
+    if (verifyAdminCredentials(cleanId, password)) {
+      try {
+        await loginAdminSession(cleanId, password);
+        success('Welcome, Administrator!');
+        onNavigate('/admin/dashboard');
+        return;
+      } catch (adminErr: any) {
+        console.warn('Admin Firebase sync notice:', adminErr);
+        // Fallback to local session if network or local Firebase has offline state
+        loginAdminSession(cleanId, password);
+        success('Welcome, Administrator!');
+        onNavigate('/admin/dashboard');
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // 2. Normal Customer Firebase Authentication Flow
     try {
       const userRole = await login(cleanId, password);
       success('Logged in successfully!');
       if (userRole === 'admin') {
-        onNavigate('/admin');
+        onNavigate('/admin/dashboard');
       } else {
         onNavigate('/dashboard');
       }

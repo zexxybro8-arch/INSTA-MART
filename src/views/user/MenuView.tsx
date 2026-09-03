@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { WalletBadge } from '../../components/common/WalletBadge';
 import { IconRenderer } from '../../components/common/IconRenderer';
+import { isAdminSessionActive } from '../../lib/adminAuth';
 import {
   Percent,
   Layers,
@@ -24,8 +25,9 @@ interface MenuViewProps {
 }
 
 export const MenuView: React.FC<MenuViewProps> = ({ onOpenDeposit, onNavigate }) => {
-  const { profile, currentUser, isAdmin, logout } = useAuth();
+  const { profile, currentUser, logout } = useAuth();
   const { settings, menuItems } = useSettings();
+  const isAdminActive = isAdminSessionActive();
 
   const handleItemClick = (page: string) => {
     onNavigate(page);
@@ -61,10 +63,10 @@ export const MenuView: React.FC<MenuViewProps> = ({ onOpenDeposit, onNavigate })
       </div>
 
       {/* Admin Panel Quick Access Banner if Admin */}
-      {isAdmin && (
+      {isAdminActive && (
         <div
           id="btn-menu-admin-panel"
-          onClick={() => onNavigate('admin-dashboard')}
+          onClick={() => onNavigate('/admin/dashboard')}
           className="mb-4 p-4 rounded-2xl bg-gradient-to-r from-purple-950/70 to-slate-900 border border-purple-500/40 flex items-center justify-between cursor-pointer hover:border-purple-500 transition shadow-lg group"
         >
           <div className="flex items-center gap-3">
@@ -157,8 +159,11 @@ export const MenuView: React.FC<MenuViewProps> = ({ onOpenDeposit, onNavigate })
       {currentUser ? (
         <button
           id="menu-btn-logout"
-          onClick={() => logout()}
-          className="w-full p-3.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-sm transition flex items-center justify-center gap-2"
+          onClick={async () => {
+            await logout();
+            onNavigate('/login');
+          }}
+          className="w-full p-3.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-sm transition flex items-center justify-center gap-2 cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
           <span>Sign Out</span>
@@ -166,8 +171,8 @@ export const MenuView: React.FC<MenuViewProps> = ({ onOpenDeposit, onNavigate })
       ) : (
         <button
           id="menu-btn-login"
-          onClick={() => onNavigate('login')}
-          className="w-full p-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+          onClick={() => onNavigate('/login')}
+          className="w-full p-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
         >
           <span>Sign In / Create Account</span>
         </button>

@@ -1,8 +1,7 @@
 import React from 'react';
 import { AuthHeader } from '../components/layout/AuthHeader';
 import { useSettings } from '../context/SettingsContext';
-import { useAuth } from '../context/AuthContext';
-import { ArrowRight, LogIn, Sparkles, Zap, ShieldCheck, TrendingUp, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, LogIn, Sparkles, Zap, ShieldCheck, TrendingUp } from 'lucide-react';
 
 interface LandingViewProps {
   onNavigate: (route: string) => void;
@@ -10,7 +9,6 @@ interface LandingViewProps {
 
 export const LandingView: React.FC<LandingViewProps> = ({ onNavigate }) => {
   const { settings } = useSettings();
-  const { currentUser, isAdmin } = useAuth();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-slate-950">
@@ -38,20 +36,8 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigate }) => {
           Premium social media marketing platform—scale your profile or brand with targeted campaigns
         </p>
 
-        {/* Two Large Action Buttons */}
+        {/* Action Buttons: Register or Sign Up & Sign In */}
         <div className="w-full flex flex-col gap-3.5 mt-9">
-          {currentUser && (
-            <button
-              type="button"
-              id="btn-landing-go-dashboard"
-              onClick={() => onNavigate(isAdmin ? '/admin' : '/dashboard')}
-              className="w-full py-4 px-6 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 active:bg-emerald-500/40 border border-emerald-500/40 text-emerald-300 font-extrabold text-base transition flex items-center justify-center gap-2.5 cursor-pointer"
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              <span>Continue to {isAdmin ? 'Admin Panel' : 'Dashboard'}</span>
-            </button>
-          )}
-
           {/* Register or Sign Up Button */}
           <button
             type="button"

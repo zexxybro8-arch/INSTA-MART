@@ -13,6 +13,13 @@ import { db } from '../../lib/firebase';
 import { Category, Subcategory, Service } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { IconRenderer } from '../../components/common/IconRenderer';
+import { CategoryLogo } from '../../components/common/CategoryLogo';
+import {
+  getEffectiveLogoUrl,
+  getSubcategoryLogoUrl,
+  getCategoryLogoUrl,
+  hasCustomSubcategoryLogo,
+} from '../../lib/logoHelper';
 import { formatCurrency } from '../../lib/currency';
 import {
   Plus,
@@ -25,12 +32,37 @@ import {
   Flame,
   ChevronRight,
   FolderTree,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Sparkles,
+  CornerDownRight,
 } from 'lucide-react';
 
-export const AdminCatalogTab: React.FC = () => {
+interface AdminCatalogTabProps {
+  currentSection?: 'categories' | 'subcategories' | 'services';
+  onSectionChange?: (section: 'categories' | 'subcategories' | 'services') => void;
+}
+
+export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
+  currentSection,
+  onSectionChange,
+}) => {
   const { success, error } = useToast();
 
-  const [activeSection, setActiveSection] = useState<'categories' | 'subcategories' | 'services'>('categories');
+  const [activeSection, setActiveSection] = useState<'categories' | 'subcategories' | 'services'>(
+    currentSection || 'categories'
+  );
+
+  useEffect(() => {
+    if (currentSection && currentSection !== activeSection) {
+      setActiveSection(currentSection);
+    }
+  }, [currentSection]);
+
+  const handleSectionSwitch = (sec: 'categories' | 'subcategories' | 'services') => {
+    setActiveSection(sec);
+    if (onSectionChange) onSectionChange(sec);
+  };
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -44,6 +76,7 @@ export const AdminCatalogTab: React.FC = () => {
   const [catName, setCatName] = useState('');
   const [catSlug, setCatSlug] = useState('');
   const [catIcon, setCatIcon] = useState('');
+  const [catLogoUrl, setCatLogoUrl] = useState('');
   const [catDesc, setCatDesc] = useState('');
   const [catSort, setCatSort] = useState(0);
 
@@ -55,6 +88,7 @@ export const AdminCatalogTab: React.FC = () => {
   const [subCatName, setSubCatName] = useState('');
   const [subCatParentId, setSubCatParentId] = useState('');
   const [subCatIcon, setSubCatIcon] = useState('');
+  const [subCatLogoUrl, setSubCatLogoUrl] = useState('');
   const [subCatDesc, setSubCatDesc] = useState('');
   const [subCatSort, setSubCatSort] = useState(0);
 
@@ -102,6 +136,7 @@ export const AdminCatalogTab: React.FC = () => {
       setCatName(cat.name);
       setCatSlug(cat.slug);
       setCatIcon(cat.icon);
+      setCatLogoUrl(cat.logoUrl || '');
       setCatDesc(cat.description);
       setCatSort(cat.sortOrder);
       setCategoryModal({ open: true, item: cat });
@@ -109,6 +144,7 @@ export const AdminCatalogTab: React.FC = () => {
       setCatName('');
       setCatSlug('');
       setCatIcon('Instagram');
+      setCatLogoUrl('');
       setCatDesc('');
       setCatSort(categories.length + 1);
       setCategoryModal({ open: true, item: null });
@@ -123,6 +159,7 @@ export const AdminCatalogTab: React.FC = () => {
           name: catName.trim(),
           slug: catSlug.trim() || catName.toLowerCase().replace(/\s+/g, '-'),
           icon: catIcon.trim(),
+          logoUrl: catLogoUrl.trim(),
           description: catDesc.trim(),
           sortOrder: Number(catSort),
           updatedAt: Date.now(),
@@ -133,6 +170,7 @@ export const AdminCatalogTab: React.FC = () => {
           name: catName.trim(),
           slug: (catSlug.trim() || catName.toLowerCase()).replace(/\s+/g, '-'),
           icon: catIcon.trim() || 'Instagram',
+          logoUrl: catLogoUrl.trim(),
           description: catDesc.trim(),
           sortOrder: Number(catSort),
           isActive: true,
@@ -174,6 +212,7 @@ export const AdminCatalogTab: React.FC = () => {
       setSubCatName(sub.name);
       setSubCatParentId(sub.categoryId);
       setSubCatIcon(sub.icon);
+      setSubCatLogoUrl(sub.logoUrl || '');
       setSubCatDesc(sub.description);
       setSubCatSort(sub.sortOrder);
       setSubcategoryModal({ open: true, item: sub });
@@ -181,6 +220,7 @@ export const AdminCatalogTab: React.FC = () => {
       setSubCatName('');
       setSubCatParentId(categories[0]?.id || '');
       setSubCatIcon('Zap');
+      setSubCatLogoUrl('');
       setSubCatDesc('');
       setSubCatSort(subcategories.length + 1);
       setSubcategoryModal({ open: true, item: null });
@@ -197,6 +237,7 @@ export const AdminCatalogTab: React.FC = () => {
           categoryId: subCatParentId,
           categoryName: parentCat?.name || '',
           icon: subCatIcon.trim(),
+          logoUrl: subCatLogoUrl.trim(),
           description: subCatDesc.trim(),
           sortOrder: Number(subCatSort),
           updatedAt: Date.now(),
@@ -208,6 +249,7 @@ export const AdminCatalogTab: React.FC = () => {
           categoryId: subCatParentId,
           categoryName: parentCat?.name || '',
           icon: subCatIcon.trim() || 'Zap',
+          logoUrl: subCatLogoUrl.trim(),
           description: subCatDesc.trim(),
           sortOrder: Number(subCatSort),
           isActive: true,
@@ -306,7 +348,7 @@ export const AdminCatalogTab: React.FC = () => {
       {/* Top Nav Pill Switcher */}
       <div className="flex items-center gap-2 p-1 rounded-2xl bg-slate-900 border border-slate-800">
         <button
-          onClick={() => setActiveSection('categories')}
+          onClick={() => handleSectionSwitch('categories')}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
             activeSection === 'categories'
               ? 'bg-purple-600 text-white shadow-md'
@@ -316,7 +358,7 @@ export const AdminCatalogTab: React.FC = () => {
           Categories ({categories.length})
         </button>
         <button
-          onClick={() => setActiveSection('subcategories')}
+          onClick={() => handleSectionSwitch('subcategories')}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
             activeSection === 'subcategories'
               ? 'bg-purple-600 text-white shadow-md'
@@ -326,7 +368,7 @@ export const AdminCatalogTab: React.FC = () => {
           Subcategories ({subcategories.length})
         </button>
         <button
-          onClick={() => setActiveSection('services')}
+          onClick={() => handleSectionSwitch('services')}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
             activeSection === 'services'
               ? 'bg-purple-600 text-white shadow-md'
@@ -341,12 +383,17 @@ export const AdminCatalogTab: React.FC = () => {
       {activeSection === 'categories' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
-              Platform Categories
-            </h3>
+            <div>
+              <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
+                Platform Categories
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Default logos configured here will be inherited by all child subcategories
+              </p>
+            </div>
             <button
               onClick={() => openCatModal(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30"
             >
               <Plus className="w-4 h-4" />
               <span>Add Category</span>
@@ -357,14 +404,21 @@ export const AdminCatalogTab: React.FC = () => {
             {categories.map((cat) => (
               <div
                 key={cat.id}
-                className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3"
+                className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3 shadow-md hover:border-slate-700/80 transition"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-200">
-                    <IconRenderer name={cat.icon || cat.name} className="w-5 h-5" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden">
+                    <CategoryLogo
+                      logoUrl={cat.logoUrl}
+                      iconName={cat.icon || cat.name}
+                      name={cat.name}
+                      className="w-full h-full flex items-center justify-center p-1.5"
+                      imageClassName="w-full h-full object-contain"
+                      fallbackIconClassName="w-5 h-5 text-purple-400"
+                    />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-sm text-white">{cat.name}</span>
                       <span
                         onClick={() => toggleCategoryActive(cat)}
@@ -376,21 +430,33 @@ export const AdminCatalogTab: React.FC = () => {
                       >
                         {cat.isActive ? 'Active' : 'Hidden'}
                       </span>
+                      {cat.logoUrl?.trim() ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5" />
+                          Platform Logo Set
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-800/80">
+                          Lucide: {cat.icon || 'Default'}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-[11px] text-slate-400 line-clamp-1">{cat.description}</p>
+                    <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{cat.description || 'No description'}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => openCatModal(cat)}
                     className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                    title="Edit Category"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => deleteCategory(cat)}
                     className="p-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                    title="Delete Category"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -405,12 +471,17 @@ export const AdminCatalogTab: React.FC = () => {
       {activeSection === 'subcategories' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
-              Service Subcategories
-            </h3>
+            <div>
+              <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
+                Service Subcategories
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Subcategories inherit their parent platform logo unless an override logo URL is set
+              </p>
+            </div>
             <button
               onClick={() => openSubCatModal(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30"
             >
               <Plus className="w-4 h-4" />
               <span>Add Subcategory</span>
@@ -418,51 +489,84 @@ export const AdminCatalogTab: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            {subcategories.map((sub) => (
-              <div
-                key={sub.id}
-                className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3"
-              >
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-purple-400 block">
-                    {getCategoryName(sub.categoryId)}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm text-white">{sub.name}</h4>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        sub.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800 text-slate-500'
-                      }`}
-                    >
-                      {sub.isActive ? 'Active' : 'Hidden'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 line-clamp-1">{sub.description}</p>
-                </div>
+            {subcategories.map((sub) => {
+              const parentCat = categories.find((c) => c.id === sub.categoryId);
+              const effectiveLogo = getSubcategoryLogoUrl(sub, parentCat);
+              const isOverridden = hasCustomSubcategoryLogo(sub);
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openSubCatModal(sub)}
-                    className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await deleteDoc(doc(db, 'subcategories', sub.id));
-                        success(`Subcategory "${sub.name}" deleted.`);
-                      } catch (err: any) {
-                        error(err?.message || 'Failed to delete subcategory.');
-                      }
-                    }}
-                    className="p-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+              return (
+                <div
+                  key={sub.id}
+                  className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3 shadow-md hover:border-slate-700/80 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden">
+                      <CategoryLogo
+                        logoUrl={effectiveLogo}
+                        iconName={sub.icon || 'Zap'}
+                        name={sub.name}
+                        className="w-full h-full flex items-center justify-center p-1.5"
+                        imageClassName="w-full h-full object-contain"
+                        fallbackIconClassName="w-5 h-5 text-purple-400"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-400 uppercase tracking-wide">
+                        <span>{parentCat?.name || getCategoryName(sub.categoryId)}</span>
+                        <ChevronRight className="w-3 h-3 text-slate-600" />
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-sm text-white">{sub.name}</h4>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            sub.isActive ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'
+                          }`}
+                        >
+                          {sub.isActive ? 'Active' : 'Hidden'}
+                        </span>
+                        {isOverridden ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                            Custom Logo Override
+                          </span>
+                        ) : parentCat?.logoUrl ? (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/70 flex items-center gap-1">
+                            <CornerDownRight className="w-2.5 h-2.5 text-purple-400" />
+                            Inherited from {parentCat.name}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{sub.description || 'No description'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => openSubCatModal(sub)}
+                      className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                      title="Edit Subcategory"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await deleteDoc(doc(db, 'subcategories', sub.id));
+                          success(`Subcategory "${sub.name}" deleted.`);
+                        } catch (err: any) {
+                          error(err?.message || 'Failed to delete subcategory.');
+                        }
+                      }}
+                      className="p-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                      title="Delete Subcategory"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -476,7 +580,7 @@ export const AdminCatalogTab: React.FC = () => {
             </h3>
             <button
               onClick={() => openServiceModal(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30"
             >
               <Plus className="w-4 h-4" />
               <span>Add Service</span>
@@ -484,62 +588,83 @@ export const AdminCatalogTab: React.FC = () => {
           </div>
 
           <div className="space-y-2.5">
-            {services.map((srv) => (
-              <div
-                key={srv.id}
-                className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-purple-400 block">
-                      {getCategoryName(srv.categoryId)} → {getSubcategoryName(srv.subcategoryId)}
-                    </span>
-                    <h4 className="font-bold text-sm text-white leading-snug">{srv.name}</h4>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-mono font-bold text-sm text-emerald-400">
-                      {formatCurrency(srv.pricePer1000, 'INR')}
-                    </span>
-                    <span className="block text-[10px] text-slate-500">/ 1000</span>
-                  </div>
-                </div>
+            {services.map((srv) => {
+              const parentCat = categories.find((c) => c.id === srv.categoryId);
+              const parentSub = subcategories.find((s) => s.id === srv.subcategoryId);
+              const effectiveLogo = getEffectiveLogoUrl(parentSub, parentCat);
 
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800 text-slate-400 font-mono">
-                  <div className="flex items-center gap-2">
-                    <span>Min: {srv.minimumQuantity}</span>
-                    <span>·</span>
-                    <span>Max: {srv.maximumQuantity}</span>
-                    {srv.isPopular && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-sans font-bold">
-                        Popular
+              return (
+                <div
+                  key={srv.id}
+                  className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2 shadow-md hover:border-slate-700/80 transition"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden mt-0.5">
+                        <CategoryLogo
+                          logoUrl={effectiveLogo}
+                          iconName={srv.icon || 'Zap'}
+                          name={srv.name}
+                          className="w-full h-full flex items-center justify-center p-1"
+                          imageClassName="w-full h-full object-contain"
+                          fallbackIconClassName="w-4 h-4 text-purple-400"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] uppercase font-bold text-purple-400 block truncate">
+                          {getCategoryName(srv.categoryId)} → {getSubcategoryName(srv.subcategoryId)}
+                        </span>
+                        <h4 className="font-bold text-sm text-white leading-snug">{srv.name}</h4>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-sm text-emerald-400">
+                        {formatCurrency(srv.pricePer1000, 'INR')}
                       </span>
-                    )}
+                      <span className="block text-[10px] text-slate-500">/ 1000</span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openServiceModal(srv)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await deleteDoc(doc(db, 'services', srv.id));
-                          success(`Service "${srv.name}" deleted.`);
-                        } catch (err: any) {
-                          error(err?.message || 'Failed to delete service.');
-                        }
-                      }}
-                      className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800 text-slate-400 font-mono">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>Min: {srv.minimumQuantity}</span>
+                      <span>·</span>
+                      <span>Max: {srv.maximumQuantity}</span>
+                      {srv.isPopular && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-sans font-bold">
+                          Popular
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => openServiceModal(srv)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                        title="Edit Service"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await deleteDoc(doc(db, 'services', srv.id));
+                            success(`Service "${srv.name}" deleted.`);
+                          } catch (err: any) {
+                            error(err?.message || 'Failed to delete service.');
+                          }
+                        }}
+                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                        title="Delete Service"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -547,37 +672,96 @@ export const AdminCatalogTab: React.FC = () => {
       {/* CATEGORY MODAL */}
       {categoryModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-3 text-xs">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-3.5 text-xs max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h4 className="font-bold text-white text-sm">
-                {categoryModal.item ? 'Edit Category' : 'New Category'}
-              </h4>
-              <button onClick={() => setCategoryModal({ open: false, item: null })}>
-                <X className="w-5 h-5 text-slate-400" />
+              <div>
+                <h4 className="font-bold text-white text-sm">
+                  {categoryModal.item ? 'Edit Platform Category' : 'New Platform Category'}
+                </h4>
+                <p className="text-[11px] text-slate-400">Manage category information & default platform logo</p>
+              </div>
+              <button
+                onClick={() => setCategoryModal({ open: false, item: null })}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory} className="space-y-3">
+            <form onSubmit={handleSaveCategory} className="space-y-3.5">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Name</label>
+                <label className="block text-slate-300 font-semibold mb-1">Category Name</label>
                 <input
                   type="text"
                   required
                   value={catName}
                   onChange={(e) => setCatName(e.target.value)}
-                  placeholder="e.g. Instagram"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  placeholder="e.g. Instagram, YouTube, Telegram"
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500"
                 />
               </div>
 
+              {/* LOGO URL FIELD & PREVIEW */}
+              <div className="space-y-2 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-semibold flex items-center gap-1.5">
+                    <LinkIcon className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Default Platform Logo URL</span>
+                  </label>
+                  {catLogoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setCatLogoUrl('')}
+                      className="text-[10px] text-rose-400 hover:text-rose-300 font-bold hover:underline"
+                    >
+                      Clear URL
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  value={catLogoUrl}
+                  onChange={(e) => setCatLogoUrl(e.target.value)}
+                  placeholder="https://example.com/instagram-logo.png"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 text-xs font-mono"
+                />
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  All subcategories under this platform (e.g. Instagram Views, Likes, Followers) will automatically inherit this logo.
+                </p>
+
+                {/* Live Preview Box */}
+                <div className="flex items-center gap-3 pt-2 border-t border-slate-800/60">
+                  <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden p-1.5">
+                    <CategoryLogo
+                      logoUrl={catLogoUrl}
+                      iconName={catIcon || catName}
+                      name={catName || 'Preview'}
+                      className="w-full h-full flex items-center justify-center"
+                      imageClassName="w-full h-full object-contain"
+                      fallbackIconClassName="w-6 h-6 text-purple-400"
+                    />
+                  </div>
+                  <div className="text-[11px] min-w-0">
+                    <span className="font-semibold text-slate-200 block">
+                      {catLogoUrl?.trim() ? 'Active Logo Preview' : 'Fallback Icon Preview'}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {catLogoUrl?.trim()
+                        ? 'Image URL loaded successfully'
+                        : 'Using Lucide icon as fallback'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Icon Name (Lucide)</label>
+                <label className="block text-slate-300 font-semibold mb-1">Fallback Icon Name (Lucide)</label>
                 <input
                   type="text"
                   value={catIcon}
                   onChange={(e) => setCatIcon(e.target.value)}
-                  placeholder="e.g. Instagram, Youtube, Send"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  placeholder="e.g. Instagram, Youtube, Send, Zap"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600"
                 />
               </div>
 
@@ -588,7 +772,7 @@ export const AdminCatalogTab: React.FC = () => {
                   value={catDesc}
                   onChange={(e) => setCatDesc(e.target.value)}
                   placeholder="Likes, views & followers"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600"
                 />
               </div>
 
@@ -602,19 +786,19 @@ export const AdminCatalogTab: React.FC = () => {
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setCategoryModal({ open: false, item: null })}
-                  className="px-4 py-2 rounded-xl border border-slate-800 text-slate-400"
+                  className="px-4 py-2 rounded-xl border border-slate-800 text-slate-400 hover:text-white transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold"
+                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition shadow-lg shadow-purple-900/30"
                 >
-                  Save
+                  Save Category
                 </button>
               </div>
             </form>
@@ -623,76 +807,175 @@ export const AdminCatalogTab: React.FC = () => {
       )}
 
       {/* SUBCATEGORY MODAL */}
-      {subcategoryModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-3 text-xs">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h4 className="font-bold text-white text-sm">
-                {subcategoryModal.item ? 'Edit Subcategory' : 'New Subcategory'}
-              </h4>
-              <button onClick={() => setSubcategoryModal({ open: false, item: null })}>
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
-            </div>
+      {subcategoryModal.open && (() => {
+        const selectedParent = categories.find((c) => c.id === subCatParentId);
+        const hasOverride = !!subCatLogoUrl?.trim();
+        const effectivePreviewLogo = hasOverride ? subCatLogoUrl : (selectedParent?.logoUrl || '');
 
-            <form onSubmit={handleSaveSubcategory} className="space-y-3">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Parent Category</label>
-                <select
-                  value={subCatParentId}
-                  onChange={(e) => setSubCatParentId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
-                >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Subcategory Name</label>
-                <input
-                  type="text"
-                  required
-                  value={subCatName}
-                  onChange={(e) => setSubCatName(e.target.value)}
-                  placeholder="e.g. Instagram Reel Views"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Description</label>
-                <input
-                  type="text"
-                  value={subCatDesc}
-                  onChange={(e) => setSubCatDesc(e.target.value)}
-                  placeholder="High retention reel views"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-3.5 text-xs max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <h4 className="font-bold text-white text-sm">
+                    {subcategoryModal.item ? 'Edit Subcategory' : 'New Subcategory'}
+                  </h4>
+                  <p className="text-[11px] text-slate-400">Configure subcategory & optional custom logo override</p>
+                </div>
                 <button
-                  type="button"
                   onClick={() => setSubcategoryModal({ open: false, item: null })}
-                  className="px-4 py-2 rounded-xl border border-slate-800 text-slate-400"
+                  className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold"
-                >
-                  Save
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleSaveSubcategory} className="space-y-3.5">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Parent Platform Category</label>
+                  <select
+                    value={subCatParentId}
+                    onChange={(e) => setSubCatParentId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-purple-500"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.logoUrl ? '(Has Platform Logo)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Subcategory Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={subCatName}
+                    onChange={(e) => setSubCatName(e.target.value)}
+                    placeholder="e.g. Instagram Reel Views, YouTube Watch Time"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                {/* LOGO URL INHERITANCE / OVERRIDE BOX */}
+                <div className="space-y-2.5 p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-semibold flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Custom Subcategory Logo URL</span>
+                    </label>
+                    {hasOverride && (
+                      <button
+                        type="button"
+                        onClick={() => setSubCatLogoUrl('')}
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-bold hover:underline flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" />
+                        Revert to Parent Logo
+                      </button>
+                    )}
+                  </div>
+
+                  <input
+                    type="url"
+                    value={subCatLogoUrl}
+                    onChange={(e) => setSubCatLogoUrl(e.target.value)}
+                    placeholder={
+                      selectedParent?.logoUrl
+                        ? `Leave empty to inherit from ${selectedParent.name}`
+                        : 'Optional custom logo image URL'
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 text-xs font-mono"
+                  />
+
+                  {/* Inheritance Live Preview Card */}
+                  <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/90 flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden p-1">
+                      <CategoryLogo
+                        logoUrl={effectivePreviewLogo}
+                        iconName={subCatIcon || 'Zap'}
+                        name={subCatName || 'Preview'}
+                        className="w-full h-full flex items-center justify-center"
+                        imageClassName="w-full h-full object-contain"
+                        fallbackIconClassName="w-5 h-5 text-purple-400"
+                      />
+                    </div>
+
+                    <div className="text-[11px] min-w-0">
+                      {hasOverride ? (
+                        <div>
+                          <div className="flex items-center gap-1 text-amber-300 font-bold">
+                            <Sparkles className="w-3 h-3 text-amber-400" />
+                            <span>Custom Subcategory Override</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            Overrides {selectedParent?.name || 'Parent'}'s logo specifically for this subcategory.
+                          </span>
+                        </div>
+                      ) : selectedParent?.logoUrl ? (
+                        <div>
+                          <div className="flex items-center gap-1 text-purple-300 font-semibold">
+                            <CornerDownRight className="w-3 h-3 text-purple-400" />
+                            <span>Inheriting from Parent ({selectedParent.name})</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            Automatic platform branding applied.
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="font-semibold text-slate-300 block">Default Icon Fallback</span>
+                          <span className="text-[10px] text-slate-500">
+                            No custom or parent logo URL set.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={subCatDesc}
+                    onChange={(e) => setSubCatDesc(e.target.value)}
+                    placeholder="High retention reel views"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    value={subCatSort}
+                    onChange={(e) => setSubCatSort(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setSubcategoryModal({ open: false, item: null })}
+                    className="px-4 py-2 rounded-xl border border-slate-800 text-slate-400 hover:text-white transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition shadow-lg shadow-purple-900/30"
+                  >
+                    Save Subcategory
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* SERVICE MODAL */}
       {serviceModal.open && (

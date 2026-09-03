@@ -13,6 +13,8 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../lib/currency';
 import { INITIAL_CATALOG } from '../../lib/initialData';
 import { IconRenderer } from '../../components/common/IconRenderer';
+import { CategoryLogo } from '../../components/common/CategoryLogo';
+import { getEffectiveLogoUrl, getSubcategoryLogoUrl } from '../../lib/logoHelper';
 import { OrderFormModal } from '../../components/order/OrderFormModal';
 import { OrderSuccessModal } from '../../components/order/OrderSuccessModal';
 import {
@@ -274,8 +276,15 @@ export const CreateOrderView: React.FC<CreateOrderViewProps> = ({ onOpenDeposit,
                 className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/85 hover:bg-slate-850 border border-slate-800/90 hover:border-emerald-500/40 cursor-pointer transition shadow-md active:scale-[0.99]"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-slate-800 group-hover:bg-emerald-500/15 border border-slate-700/60 group-hover:border-emerald-500/30 flex items-center justify-center text-slate-300 group-hover:text-emerald-400 transition shadow-inner">
-                    <IconRenderer name={cat.icon || cat.name} className="w-5 h-5" />
+                  <div className="w-11 h-11 rounded-2xl bg-slate-800 group-hover:bg-emerald-500/15 border border-slate-700/60 group-hover:border-emerald-500/30 flex items-center justify-center text-slate-300 group-hover:text-emerald-400 transition shadow-inner overflow-hidden p-1.5">
+                    <CategoryLogo
+                      logoUrl={cat.logoUrl}
+                      iconName={cat.icon || cat.name}
+                      name={cat.name}
+                      className="w-full h-full flex items-center justify-center"
+                      imageClassName="w-full h-full object-contain"
+                      fallbackIconClassName="w-5 h-5 text-emerald-400"
+                    />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition">
@@ -300,8 +309,15 @@ export const CreateOrderView: React.FC<CreateOrderViewProps> = ({ onOpenDeposit,
       {selectedCategory && !selectedSubcategory && (
         <div className="space-y-2.5">
           <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 mb-3 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <IconRenderer name={selectedCategory.icon || selectedCategory.name} className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 overflow-hidden p-1.5 shrink-0">
+              <CategoryLogo
+                logoUrl={selectedCategory.logoUrl}
+                iconName={selectedCategory.icon || selectedCategory.name}
+                name={selectedCategory.name}
+                className="w-full h-full flex items-center justify-center"
+                imageClassName="w-full h-full object-contain"
+                fallbackIconClassName="w-6 h-6 text-emerald-400"
+              />
             </div>
             <div>
               <h2 className="text-base font-extrabold text-white">{selectedCategory.name} Services</h2>
@@ -322,30 +338,41 @@ export const CreateOrderView: React.FC<CreateOrderViewProps> = ({ onOpenDeposit,
               <p className="text-xs text-slate-500 mt-1">Please check back shortly.</p>
             </div>
           ) : (
-            subcategories.map((subcat) => (
-              <div
-                key={subcat.id}
-                id={`subcat-card-${subcat.id}`}
-                onClick={() => setSelectedSubcategory(subcat)}
-                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/85 hover:bg-slate-850 border border-slate-800/90 hover:border-emerald-500/40 cursor-pointer transition shadow-md active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-slate-800 group-hover:bg-emerald-500/15 border border-slate-700/60 group-hover:border-emerald-500/30 flex items-center justify-center text-slate-300 group-hover:text-emerald-400 transition">
-                    <IconRenderer name={subcat.icon || 'Zap'} className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition">
-                      {subcat.name}
-                    </h4>
-                    <p className="text-[11px] text-slate-400 line-clamp-1">{subcat.description}</p>
-                  </div>
-                </div>
+            subcategories.map((subcat) => {
+              const effectiveSubLogo = getSubcategoryLogoUrl(subcat, selectedCategory);
 
-                <div className="w-7 h-7 rounded-full bg-slate-800/80 group-hover:bg-emerald-500/20 flex items-center justify-center text-slate-400 group-hover:text-emerald-300 transition">
-                  <ChevronRight className="w-4 h-4" />
+              return (
+                <div
+                  key={subcat.id}
+                  id={`subcat-card-${subcat.id}`}
+                  onClick={() => setSelectedSubcategory(subcat)}
+                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/85 hover:bg-slate-850 border border-slate-800/90 hover:border-emerald-500/40 cursor-pointer transition shadow-md active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 group-hover:bg-emerald-500/15 border border-slate-700/60 group-hover:border-emerald-500/30 flex items-center justify-center text-slate-300 group-hover:text-emerald-400 transition overflow-hidden p-1 shrink-0">
+                      <CategoryLogo
+                        logoUrl={effectiveSubLogo}
+                        iconName={subcat.icon || 'Zap'}
+                        name={subcat.name}
+                        className="w-full h-full flex items-center justify-center"
+                        imageClassName="w-full h-full object-contain"
+                        fallbackIconClassName="w-4 h-4 text-emerald-400"
+                      />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition">
+                        {subcat.name}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 line-clamp-1">{subcat.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="w-7 h-7 rounded-full bg-slate-800/80 group-hover:bg-emerald-500/20 flex items-center justify-center text-slate-400 group-hover:text-emerald-300 transition">
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -354,13 +381,25 @@ export const CreateOrderView: React.FC<CreateOrderViewProps> = ({ onOpenDeposit,
       {selectedCategory && selectedSubcategory && (
         <div className="space-y-3">
           <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">
-                {selectedCategory.name}
-              </span>
-              <h2 className="text-base font-extrabold text-white leading-tight">
-                {selectedSubcategory.name}
-              </h2>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 overflow-hidden p-1 shrink-0">
+                <CategoryLogo
+                  logoUrl={getEffectiveLogoUrl(selectedSubcategory, selectedCategory)}
+                  iconName={selectedSubcategory.icon || 'Zap'}
+                  name={selectedSubcategory.name}
+                  className="w-full h-full flex items-center justify-center"
+                  imageClassName="w-full h-full object-contain"
+                  fallbackIconClassName="w-5 h-5 text-emerald-400"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">
+                  {selectedCategory.name}
+                </span>
+                <h2 className="text-base font-extrabold text-white leading-tight">
+                  {selectedSubcategory.name}
+                </h2>
+              </div>
             </div>
             <span className="text-xs text-slate-400 font-mono">
               {services.length} services
@@ -380,63 +419,74 @@ export const CreateOrderView: React.FC<CreateOrderViewProps> = ({ onOpenDeposit,
               <p className="text-xs text-slate-500 mt-1">Admin will configure services soon.</p>
             </div>
           ) : (
-            services.map((srv) => (
-              <div
-                key={srv.id}
-                id={`service-card-${srv.id}`}
-                onClick={() => setActiveServiceForOrder(srv)}
-                className="group relative p-4 rounded-2xl bg-slate-900/90 hover:bg-slate-850 border border-slate-800/90 hover:border-emerald-500/40 cursor-pointer transition shadow-lg active:scale-[0.99] space-y-3"
-              >
-                {/* Header Row: Icon, Name, Price */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 group-hover:bg-emerald-500/15 border border-slate-700/60 group-hover:border-emerald-500/30 flex items-center justify-center text-slate-300 group-hover:text-emerald-400 transition shrink-0">
-                      <IconRenderer name={srv.icon || 'Zap'} className="w-5 h-5" />
+            services.map((srv) => {
+              const effectiveServiceLogo = getEffectiveLogoUrl(selectedSubcategory, selectedCategory);
+
+              return (
+                <div
+                  key={srv.id}
+                  id={`service-card-${srv.id}`}
+                  onClick={() => setActiveServiceForOrder(srv)}
+                  className="group relative p-4 rounded-2xl bg-slate-900/90 hover:bg-slate-850 border border-slate-800/90 hover:border-emerald-500/40 cursor-pointer transition shadow-lg active:scale-[0.99] space-y-3"
+                >
+                  {/* Header Row: Icon, Name, Price */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 group-hover:bg-emerald-500/15 border border-slate-700/60 group-hover:border-emerald-500/30 flex items-center justify-center text-slate-300 group-hover:text-emerald-400 transition shrink-0 overflow-hidden p-1">
+                        <CategoryLogo
+                          logoUrl={effectiveServiceLogo}
+                          iconName={srv.icon || 'Zap'}
+                          name={srv.name}
+                          className="w-full h-full flex items-center justify-center"
+                          imageClassName="w-full h-full object-contain"
+                          fallbackIconClassName="w-5 h-5 text-emerald-400"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition leading-snug">
+                          {srv.name}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                          {srv.description}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition leading-snug">
-                        {srv.name}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                        {srv.description}
-                      </p>
+
+                    <div className="text-right shrink-0">
+                      <div className="font-mono font-extrabold text-sm text-emerald-400">
+                        {formatCurrency(srv.pricePer1000, userCurrency)}
+                      </div>
+                      <span className="text-[10px] text-slate-400 block font-medium">per 1000</span>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <div className="font-mono font-extrabold text-sm text-emerald-400">
-                      {formatCurrency(srv.pricePer1000, userCurrency)}
-                    </div>
-                    <span className="text-[10px] text-slate-400 block font-medium">per 1000</span>
-                  </div>
-                </div>
-
-                {/* Badges & Speeds */}
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[11px]">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {srv.isPopular && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                        <Flame className="w-3 h-3 text-amber-400" />
-                        Most Popular
+                  {/* Badges & Speeds */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[11px]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {srv.isPopular && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                          <Flame className="w-3 h-3 text-amber-400" />
+                          Most Popular
+                        </span>
+                      )}
+                      <span className="text-slate-400 flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-emerald-400" />
+                        {srv.speed || 'Fast'}
                       </span>
-                    )}
-                    <span className="text-slate-400 flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-emerald-400" />
-                      {srv.speed || 'Fast'}
-                    </span>
-                    <span className="text-slate-500">·</span>
-                    <span className="text-slate-400 font-mono">
-                      Min: {srv.minimumQuantity.toLocaleString('en-IN')}
-                    </span>
-                  </div>
+                      <span className="text-slate-500">·</span>
+                      <span className="text-slate-400 font-mono">
+                        Min: {srv.minimumQuantity.toLocaleString('en-IN')}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 group-hover:translate-x-0.5 transition">
-                    <span>Order</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 group-hover:translate-x-0.5 transition">
+                      <span>Order</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

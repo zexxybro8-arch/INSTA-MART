@@ -18,6 +18,8 @@ import { useToast } from '../../context/ToastContext';
 import { useSettings } from '../../context/SettingsContext';
 import { calculateOrderAmount, formatCurrency } from '../../lib/currency';
 import { IconRenderer } from '../common/IconRenderer';
+import { CategoryLogo } from '../common/CategoryLogo';
+import { getEffectiveLogoUrl } from '../../lib/logoHelper';
 import { db } from '../../lib/firebase';
 import {
   runTransaction,
@@ -254,10 +256,20 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
             {/* Service Summary Card */}
             <div className="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0">
-                  <IconRenderer name={service.icon || 'Zap'} className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 shrink-0 overflow-hidden p-1.5 shadow-inner">
+                  <CategoryLogo
+                    logoUrl={getEffectiveLogoUrl(subcategory, category)}
+                    iconName={service.icon || 'Zap'}
+                    name={service.name}
+                    className="w-full h-full flex items-center justify-center"
+                    imageClassName="w-full h-full object-contain"
+                    fallbackIconClassName="w-5 h-5 text-emerald-400"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    {category?.name} {subcategory ? `→ ${subcategory.name}` : ''}
+                  </div>
                   <h3 className="text-sm font-bold text-white leading-snug">
                     {service.name}
                   </h3>

@@ -25,7 +25,8 @@ export interface Category {
   id: string;
   name: string;
   slug: string;
-  icon: string; // Lucide icon name or image URL
+  icon: string; // Lucide icon name or fallback
+  logoUrl?: string; // Default platform logo URL (e.g. https://example.com/instagram.png)
   description: string;
   sortOrder: number;
   isActive: boolean;
@@ -36,9 +37,11 @@ export interface Category {
 export interface Subcategory {
   id: string;
   categoryId: string;
+  categoryName?: string;
   name: string;
   slug: string;
   icon: string;
+  logoUrl?: string; // Optional custom logo URL; if empty, inherits from parent category
   description: string;
   sortOrder: number;
   isActive: boolean;

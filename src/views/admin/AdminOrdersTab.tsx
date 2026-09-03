@@ -24,6 +24,9 @@ import {
   X,
   RotateCcw,
   Save,
+  Copy,
+  Check,
+  User,
 } from 'lucide-react';
 
 const STATUS_OPTIONS: OrderStatus[] = [
@@ -42,6 +45,7 @@ export const AdminOrdersTab: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isLoading, setIsLoading] = useState(true);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   // Edit Order Modal
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -68,6 +72,12 @@ export const AdminOrdersTab: React.FC = () => {
     );
     return () => unsub();
   }, []);
+
+  const handleCopyLink = (link: string, orderId: string) => {
+    navigator.clipboard.writeText(link);
+    setCopiedLink(orderId);
+    setTimeout(() => setCopiedLink(null), 2000);
+  };
 
   const filteredOrders = useMemo(() => {
     let result = orders;
@@ -260,15 +270,27 @@ export const AdminOrdersTab: React.FC = () => {
                   <div className="font-bold text-white leading-snug">
                     {order.serviceName}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5 truncate">
-                    <span className="truncate">{order.link}</span>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-1 bg-slate-950/60 p-2 rounded-xl border border-slate-800/80">
+                    <span className="truncate flex-1 select-all">{order.link}</span>
+                    <button
+                      onClick={() => handleCopyLink(order.link, order.id)}
+                      className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition shrink-0"
+                      title="Copy link"
+                    >
+                      {copiedLink === order.id ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                     <a
                       href={order.link}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="text-purple-400 hover:text-purple-300 shrink-0"
+                      className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-purple-400 hover:text-purple-300 transition shrink-0"
+                      title="Open link in new tab"
                     >
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 </div>

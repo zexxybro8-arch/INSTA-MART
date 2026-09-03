@@ -20,20 +20,45 @@ import {
   Layers,
   Headphones,
   Settings,
-  TrendingUp,
   Clock,
   ArrowLeft,
   DollarSign,
+  LogOut,
+  Menu,
+  X,
+  LayoutDashboard,
+  FolderTree,
+  Grid,
+  Zap,
+  ChevronRight,
+  Database,
 } from 'lucide-react';
+import { logoutAdminSession, FIXED_ADMIN_ID } from '../../lib/adminAuth';
 
 interface AdminDashboardViewProps {
   onBackToUserPanel: () => void;
+  onLogout?: () => void;
 }
 
 type AdminTab = 'overview' | 'orders' | 'catalog' | 'users' | 'deposits' | 'tickets' | 'settings';
+type CatalogSection = 'categories' | 'subcategories' | 'services';
 
-export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onBackToUserPanel }) => {
+export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
+  onBackToUserPanel,
+  onLogout,
+}) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [catalogSection, setCatalogSection] = useState<CatalogSection>('categories');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleAdminLogout = () => {
+    logoutAdminSession();
+    if (onLogout) {
+      onLogout();
+    } else {
+      onBackToUserPanel();
+    }
+  };
 
   // Real-time metric counts
   const [userCount, setUserCount] = useState(0);
@@ -85,63 +110,297 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onBackTo
     };
   }, []);
 
+  const navMenuItems = [
+    {
+      id: 'overview',
+      label: 'Overview',
+      icon: LayoutDashboard,
+      onClick: () => {
+        setActiveTab('overview');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'overview',
+    },
+    {
+      id: 'orders',
+      label: 'Orders',
+      icon: ShoppingBag,
+      badge: pendingOrders > 0 ? pendingOrders : undefined,
+      badgeColor: 'bg-amber-500',
+      onClick: () => {
+        setActiveTab('orders');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'orders',
+    },
+    {
+      id: 'catalog',
+      label: 'Catalog',
+      icon: Database,
+      onClick: () => {
+        setActiveTab('catalog');
+        setCatalogSection('categories');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'catalog' && catalogSection === 'categories',
+    },
+    {
+      id: 'categories',
+      label: 'Categories',
+      icon: FolderTree,
+      onClick: () => {
+        setActiveTab('catalog');
+        setCatalogSection('categories');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'catalog' && catalogSection === 'categories',
+    },
+    {
+      id: 'subcategories',
+      label: 'Subcategories',
+      icon: Grid,
+      onClick: () => {
+        setActiveTab('catalog');
+        setCatalogSection('subcategories');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'catalog' && catalogSection === 'subcategories',
+    },
+    {
+      id: 'services',
+      label: 'Services',
+      icon: Zap,
+      badge: activeServices > 0 ? activeServices : undefined,
+      badgeColor: 'bg-teal-500',
+      onClick: () => {
+        setActiveTab('catalog');
+        setCatalogSection('services');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'catalog' && catalogSection === 'services',
+    },
+    {
+      id: 'users',
+      label: 'Users',
+      icon: Users,
+      badge: userCount > 0 ? userCount : undefined,
+      badgeColor: 'bg-blue-500',
+      onClick: () => {
+        setActiveTab('users');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'users',
+    },
+    {
+      id: 'deposits',
+      label: 'Deposits',
+      icon: CreditCard,
+      badge: pendingDeposits > 0 ? pendingDeposits : undefined,
+      badgeColor: 'bg-emerald-500',
+      onClick: () => {
+        setActiveTab('deposits');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'deposits',
+    },
+    {
+      id: 'tickets',
+      label: 'Support Tickets',
+      icon: Headphones,
+      badge: openTickets > 0 ? openTickets : undefined,
+      badgeColor: 'bg-rose-500',
+      onClick: () => {
+        setActiveTab('tickets');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'tickets',
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: Settings,
+      onClick: () => {
+        setActiveTab('settings');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'settings',
+    },
+  ];
+
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-4 pb-28 space-y-4">
-      {/* Top Header */}
-      <div className="flex items-center justify-between p-4 rounded-3xl bg-slate-900/90 border border-purple-500/30 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shadow-inner">
-            <Shield className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-extrabold text-white">INSTA MART Admin</h1>
-            <p className="text-[11px] text-purple-300/80">Operations &amp; Manual Fulfillment</p>
+    <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-4 pb-28 space-y-4">
+      {/* Top Header with Hamburger Button */}
+      <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-3xl bg-slate-900/90 border border-purple-500/30 shadow-xl backdrop-blur-md">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Hamburger Menu Button */}
+          <button
+            id="btn-admin-hamburger"
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition flex items-center justify-center shadow-md active:scale-95 group"
+            title="Open Admin Menu"
+            aria-label="Open Admin Menu"
+          >
+            <Menu className="w-5 h-5 text-purple-300 group-hover:text-white transition" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shadow-inner">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
+                <span>INSTA MART Admin</span>
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  {activeTab.toUpperCase()}
+                </span>
+              </h1>
+              <p className="text-[10px] sm:text-[11px] text-purple-300/80">Operations &amp; Manual Fulfillment</p>
+            </div>
           </div>
         </div>
 
-        <button
-          onClick={onBackToUserPanel}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>User View</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-admin-user-view"
+            onClick={onBackToUserPanel}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
+            title="Open customer front-end view"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">User Site</span>
+          </button>
+
+          <button
+            id="btn-admin-logout"
+            onClick={handleAdminLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-bold transition"
+            title="Sign out of Admin Dashboard"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Logout</span>
+          </button>
+        </div>
       </div>
 
-      {/* Navigation Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1 text-xs">
-        {[
-          { id: 'overview', label: 'Overview', icon: TrendingUp },
-          { id: 'orders', label: 'Orders', icon: ShoppingBag, badge: pendingOrders },
-          { id: 'catalog', label: 'Catalog', icon: Layers },
-          { id: 'users', label: 'Users', icon: Users },
-          { id: 'deposits', label: 'Deposits', icon: CreditCard, badge: pendingDeposits },
-          { id: 'tickets', label: 'Support', icon: Headphones, badge: openTickets },
-          { id: 'settings', label: 'Settings', icon: Settings },
-        ].map((item) => {
-          const isActive = activeTab === item.id;
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as AdminTab)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl font-bold whitespace-nowrap transition border ${
-                isActive
-                  ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/20'
-                  : 'bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-slate-200 border-slate-800'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{item.label}</span>
-              {!!item.badge && item.badge > 0 && (
-                <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-mono flex items-center justify-center ml-0.5">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Hamburger Left Side Drawer Overlay */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-50 flex animate-in fade-in duration-200">
+          {/* Backdrop Blur */}
+          <div
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+            aria-hidden="true"
+          />
+
+          {/* Left Drawer Container */}
+          <div className="relative w-72 sm:w-80 max-w-[85vw] h-full bg-slate-950 border-r border-slate-800/90 shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-800/90 bg-slate-900/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-extrabold text-white tracking-wider uppercase">
+                    ADMIN MENU
+                  </h2>
+                  <p className="text-[10px] text-slate-400 font-medium">Control &amp; Operations</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
+                title="Close Admin Menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Vertical Menu Items */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+              {navMenuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={item.onClick}
+                    className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
+                      item.isActive
+                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40 border border-purple-500'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-900/90 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-7 h-7 rounded-xl flex items-center justify-center ${
+                          item.isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-slate-900 text-purple-400 border border-slate-800'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm">{item.label}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {item.badge !== undefined && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-white shadow-sm ${
+                            item.badgeColor || 'bg-purple-500'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                      <ChevronRight
+                        className={`w-3.5 h-3.5 ${
+                          item.isActive ? 'text-purple-200' : 'text-slate-600'
+                        }`}
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Drawer Footer info */}
+            <div className="p-4 border-t border-slate-800/90 bg-slate-900/60 space-y-3">
+              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400">Authenticated</div>
+                  <div className="text-xs font-mono font-bold text-purple-300">{FIXED_ADMIN_ID}</div>
+                </div>
+                <div className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                  Active
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setIsSidebarOpen(false);
+                    onBackToUserPanel();
+                  }}
+                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>User Site</span>
+                </button>
+
+                <button
+                  onClick={handleAdminLogout}
+                  className="py-2 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB CONTENT: OVERVIEW METRICS */}
       {activeTab === 'overview' && (
@@ -206,12 +465,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onBackTo
 
             {/* Metric 5: Active Services */}
             <div
-              onClick={() => setActiveTab('catalog')}
+              onClick={() => {
+                setActiveTab('catalog');
+                setCatalogSection('services');
+              }}
               className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-purple-500/40 cursor-pointer transition shadow-md"
             >
               <div className="flex items-center justify-between text-slate-400 mb-1">
                 <span className="text-[11px] font-semibold uppercase">Services</span>
-                <Layers className="w-4 h-4 text-teal-400" />
+                <Zap className="w-4 h-4 text-teal-400" />
               </div>
               <div className="font-mono font-black text-2xl text-white">
                 {activeServices}
@@ -242,7 +504,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onBackTo
               <span>Manual Fulfillment Operational Workflow</span>
             </h4>
             <p className="text-purple-200/90 leading-relaxed text-[11px]">
-              INSTA MART operates on strict manual order processing. When orders are placed, they start with status <strong className="text-white font-semibold">Pending</strong>. You can navigate to the <button onClick={() => setActiveTab('orders')} className="underline font-bold text-white">Orders tab</button> to update progress, adjust start/current counts, and mark orders as Completed or Partial.
+              INSTA MART operates on strict manual order processing. When orders are placed, they start with status <strong className="text-white font-semibold">Pending</strong>. You can click the hamburger menu (☰) on the top left or select the <button onClick={() => setActiveTab('orders')} className="underline font-bold text-white">Orders section</button> to update progress, adjust start/current counts, and mark orders as Completed or Partial.
             </p>
           </div>
         </div>
@@ -252,7 +514,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onBackTo
       {activeTab === 'orders' && <AdminOrdersTab />}
 
       {/* TAB CONTENT: CATALOG */}
-      {activeTab === 'catalog' && <AdminCatalogTab />}
+      {activeTab === 'catalog' && (
+        <AdminCatalogTab
+          currentSection={catalogSection}
+          onSectionChange={setCatalogSection}
+        />
+      )}
 
       {/* TAB CONTENT: USERS */}
       {activeTab === 'users' && <AdminUsersTab />}
