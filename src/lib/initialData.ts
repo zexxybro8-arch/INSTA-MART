@@ -1,6 +1,18 @@
 import { doc, getDoc, setDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
-import { SiteSettings, Category, Subcategory, Service, MenuItemConfig } from '../types';
+import { SiteSettings, Category, Subcategory, Service, MenuItemConfig, DepositAmountConfig } from '../types';
+
+export const DEFAULT_DEPOSIT_AMOUNTS: DepositAmountConfig[] = [
+  100, 120, 150, 170, 200, 250, 300, 450, 500, 650, 700, 750, 800, 850, 900, 950, 1000
+].map((amount, idx) => ({
+  id: `amt_${amount}`,
+  amount: amount,
+  qrUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent('upi://pay?pa=instamart@upi&pn=INSTAMART&am=' + amount + '&cu=INR&tn=Deposit%20%E2%82%B9' + amount)}`,
+  isActive: true,
+  sortOrder: idx + 1,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+}));
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   id: 'general',
@@ -460,6 +472,17 @@ export async function seedInitialCatalogIfEmpty(): Promise<boolean> {
       const batch = writeBatch(db);
       for (const item of INITIAL_MENU_ITEMS) {
         batch.set(doc(db, 'menuItems', item.id), item);
+      }
+      await batch.commit();
+    }
+
+    // 2b. Check/Seed Deposit Amounts
+    const depositAmountsColl = collection(db, 'depositAmounts');
+    const depositAmountsSnap = await getDocs(depositAmountsColl);
+    if (depositAmountsSnap.empty) {
+      const batch = writeBatch(db);
+      for (const item of DEFAULT_DEPOSIT_AMOUNTS) {
+        batch.set(doc(db, 'depositAmounts', item.id), item);
       }
       await batch.commit();
     }

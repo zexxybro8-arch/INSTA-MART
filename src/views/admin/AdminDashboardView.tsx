@@ -10,6 +10,7 @@ import { AdminOrdersTab } from './AdminOrdersTab';
 import { AdminCatalogTab } from './AdminCatalogTab';
 import { AdminUsersTab } from './AdminUsersTab';
 import { AdminDepositsTab } from './AdminDepositsTab';
+import { AdminDepositSettingsTab } from './AdminDepositSettingsTab';
 import { AdminTicketsTab } from './AdminTicketsTab';
 import { AdminSettingsTab } from './AdminSettingsTab';
 import {
@@ -17,6 +18,7 @@ import {
   ShoppingBag,
   Users,
   CreditCard,
+  QrCode,
   Layers,
   Headphones,
   Settings,
@@ -40,7 +42,7 @@ interface AdminDashboardViewProps {
   onLogout?: () => void;
 }
 
-type AdminTab = 'overview' | 'orders' | 'catalog' | 'users' | 'deposits' | 'tickets' | 'settings';
+type AdminTab = 'overview' | 'orders' | 'catalog' | 'users' | 'deposits' | 'deposit_settings' | 'tickets' | 'settings';
 type CatalogSection = 'categories' | 'subcategories' | 'services';
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
@@ -202,6 +204,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         setIsSidebarOpen(false);
       },
       isActive: activeTab === 'deposits',
+    },
+    {
+      id: 'deposit_settings',
+      label: 'Deposit QR & Amounts',
+      icon: QrCode,
+      onClick: () => {
+        setActiveTab('deposit_settings');
+        setIsSidebarOpen(false);
+      },
+      isActive: activeTab === 'deposit_settings',
     },
     {
       id: 'tickets',
@@ -526,6 +538,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* TAB CONTENT: DEPOSITS */}
       {activeTab === 'deposits' && <AdminDepositsTab />}
+
+      {/* TAB CONTENT: DEPOSIT SETTINGS & QR CONFIG */}
+      {activeTab === 'deposit_settings' && <AdminDepositSettingsTab />}
 
       {/* TAB CONTENT: TICKETS */}
       {activeTab === 'tickets' && <AdminTicketsTab />}

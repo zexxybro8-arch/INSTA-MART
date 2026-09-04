@@ -171,6 +171,20 @@
         "message": { "type": "string" },
         "createdAt": { "type": "number" }
       }
+    },
+    "DepositAmountConfig": {
+      "title": "DepositAmountConfig",
+      "description": "Fixed deposit amount with associated QR mapping",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "amount": { "type": "number" },
+        "qrUrl": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      }
     }
   },
   "firestore": {
@@ -185,6 +199,14 @@
     "/siteSettings/{settingId}": {
       "schema": "SiteSettings",
       "description": "Site-wide configuration"
+    },
+    "/depositAmounts/{amountId}": {
+      "schema": "DepositAmountConfig",
+      "description": "Admin configured fixed deposit amounts and QR URLs"
+    },
+    "/depositSettings/{settingId}": {
+      "schema": "SiteSettings",
+      "description": "Deposit global settings"
     },
     "/categories/{categoryId}": {
       "schema": "Category",

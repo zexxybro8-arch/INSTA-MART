@@ -215,6 +215,23 @@ export interface MenuItemConfig {
   sortOrder: number;
 }
 
+export interface DepositAmountConfig {
+  id: string;
+  amount: number;
+  qrUrl: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface DepositSettingsConfig {
+  merchantUpiId: string;
+  merchantName: string;
+  maxAmountLimit: number;
+  sessionTimeoutSeconds: number; // default 300 (5 minutes)
+}
+
 export interface ActivityLog {
   id: string;
   adminId: string;
