@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   X,
   Upload,
@@ -10,11 +10,9 @@ import {
   Download,
   ArrowRight,
   ArrowLeft,
-  Sparkles,
   RefreshCw,
-  FolderTree,
   Check,
-  Zap,
+  RotateCcw,
 } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -210,6 +208,30 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
     failed: number;
     details: { name: string; status: 'created' | 'skipped' | 'failed'; reason?: string }[];
   }>({ created: 0, skipped: 0, failed: 0, details: [] });
+
+  // Reset all state when modal closes or opens
+  const resetAllState = useCallback(() => {
+    setStep(1);
+    setImportMethod('csv');
+    setPastedContent('');
+    setSkipDuplicates(true);
+    setRows([]);
+    setImporting(false);
+    setImportProgress({ current: 0, total: 0 });
+    setImportResults({ created: 0, skipped: 0, failed: 0, details: [] });
+  }, []);
+
+  // Guarantee that whenever isOpen toggles to true, state is cleanly reset to Step 1
+  useEffect(() => {
+    if (isOpen) {
+      resetAllState();
+    }
+  }, [isOpen, resetAllState]);
+
+  const handleClose = () => {
+    resetAllState();
+    onClose();
+  };
 
   // Handle template download
   const handleDownloadTemplate = () => {
@@ -615,9 +637,23 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
     setImportProgress({ current: 0, total: rowsToImport.length });
 
     let createdCount = 0;
-    let skippedCount = rows.length - rowsToImport.length;
+    let skippedCount = 0;
     let failedCount = 0;
     const resultDetails: { name: string; status: 'created' | 'skipped' | 'failed'; reason?: string }[] = [];
+
+    // Track rows that were excluded from import
+    rows.forEach((row) => {
+      if (row.status === 'error') {
+        skippedCount++;
+        resultDetails.push({ name: row.name || 'Unnamed Row', status: 'skipped', reason: 'Validation error: ' + (row.errors[0] || 'Invalid data') });
+      } else if (row.status === 'duplicate' && skipDuplicates) {
+        skippedCount++;
+        resultDetails.push({ name: row.name, status: 'skipped', reason: 'Duplicate service skipped' });
+      } else if (!row.selected) {
+        skippedCount++;
+        resultDetails.push({ name: row.name, status: 'skipped', reason: 'Unselected by user' });
+      }
+    });
 
     for (let i = 0; i < rowsToImport.length; i++) {
       const row = rowsToImport[i];
@@ -685,8 +721,9 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -829,7 +866,7 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
                   onClick={handlePasteSubmit}
                   className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Parse & Preview Data</span>
+                  <span>Continue / Preview Data</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1069,7 +1106,7 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Edit Data</span>
+                <span>Back</span>
               </button>
 
               <button
@@ -1078,7 +1115,7 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
                 onClick={executeImport}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-extrabold text-xs transition shadow-lg shadow-purple-900/30 cursor-pointer disabled:cursor-not-allowed"
               >
-                <span>Import {stats.importable} Services</span>
+                <span>Start Import ({stats.importable} Services)</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -1094,7 +1131,7 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
             <div>
               <h4 className="font-extrabold text-white text-lg">Importing Services into Database...</h4>
               <p className="text-xs text-slate-400 mt-1">
-                Processing {importProgress.current} of {importProgress.total} items
+                Imported {importProgress.current} / Total {importProgress.total}
               </p>
             </div>
             <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 max-w-md mx-auto">
@@ -1125,29 +1162,43 @@ export const BulkServiceImportModal: React.FC<BulkServiceImportModalProps> = ({
 
             {/* Results Details List */}
             <div className="flex-1 overflow-y-auto border border-slate-800 rounded-2xl bg-slate-950 p-3 space-y-2">
-              <h5 className="font-extrabold text-xs text-slate-300">Import Log Details</h5>
+              <h5 className="font-extrabold text-xs text-slate-300">
+                Import Log Details ({importResults.details.length} Items)
+              </h5>
               {importResults.details.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs gap-2"
                 >
-                  <span className="font-bold text-white">{item.name}</span>
-                  {item.status === 'created' && (
-                    <span className="text-emerald-400 font-bold text-[11px]">✓ Created</span>
-                  )}
-                  {item.status === 'skipped' && (
-                    <span className="text-slate-500 font-bold text-[11px]">Skipped</span>
-                  )}
-                  {item.status === 'failed' && (
-                    <span className="text-rose-400 font-bold text-[11px]">Failed: {item.reason}</span>
-                  )}
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="font-mono text-[10px] text-slate-500 font-bold">#{idx + 1}</span>
+                    <span className="font-bold text-white truncate">{item.name}</span>
+                  </div>
+
+                  <div className="shrink-0">
+                    {item.status === 'created' && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> ✓ Created
+                      </span>
+                    )}
+                    {item.status === 'skipped' && (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold border border-slate-700 flex items-center gap-1" title={item.reason}>
+                        <RotateCcw className="w-3 h-3" /> ↷ Skipped
+                      </span>
+                    )}
+                    {item.status === 'failed' && (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 text-[10px] font-bold border border-rose-500/30 flex items-center gap-1" title={item.reason}>
+                        <XCircle className="w-3 h-3" /> ✕ Failed
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs transition shadow-lg shadow-purple-900/30 cursor-pointer shrink-0"
             >
               Done & Close
