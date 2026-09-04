@@ -108,6 +108,7 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
   const [srvDesc, setSrvDesc] = useState('');
   const [srvIsPopular, setSrvIsPopular] = useState(false);
   const [srvSort, setSrvSort] = useState(0);
+  const [isContextualServiceAdd, setIsContextualServiceAdd] = useState(false);
 
   // Real-time catalog subscriptions
   useEffect(() => {
@@ -269,7 +270,7 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
   };
 
   // Service Actions
-  const openServiceModal = (srv: Service | null) => {
+  const openServiceModal = (srv: Service | null, presetCatId?: string, presetSubcatId?: string) => {
     if (srv) {
       setSrvName(srv.name);
       setSrvCatId(srv.categoryId);
@@ -281,11 +282,15 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
       setSrvDesc(srv.description || '');
       setSrvIsPopular(!!srv.isPopular);
       setSrvSort(srv.sortOrder);
+      setIsContextualServiceAdd(false);
       setServiceModal({ open: true, item: srv });
     } else {
+      const catId = presetCatId || categories[0]?.id || '';
+      const catSubs = subcategories.filter((s) => s.categoryId === catId);
+      const subcatId = presetSubcatId || catSubs[0]?.id || subcategories[0]?.id || '';
       setSrvName('');
-      setSrvCatId(categories[0]?.id || '');
-      setSrvSubcatId(subcategories[0]?.id || '');
+      setSrvCatId(catId);
+      setSrvSubcatId(subcatId);
       setSrvPrice(25);
       setSrvMin(100);
       setSrvMax(50000);
@@ -293,6 +298,7 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
       setSrvDesc('');
       setSrvIsPopular(false);
       setSrvSort(services.length + 1);
+      setIsContextualServiceAdd(!!(presetCatId && presetSubcatId));
       setServiceModal({ open: true, item: null });
     }
   };
@@ -718,98 +724,291 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
 
       {/* SECTION 3: SERVICES */}
       {activeSection === 'services' && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
-              Services Catalog
-            </h3>
+            <div>
+              <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
+                Services Catalog
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Services are organized by platform category and subcategory. Use "+ Add Service" under any subcategory for instant contextual creation.
+              </p>
+            </div>
+            {/* GLOBAL + Add Service Button */}
             <button
               onClick={() => openServiceModal(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add Service</span>
             </button>
           </div>
 
-          <div className="space-y-2.5">
-            {services.map((srv) => {
-              const parentCat = categories.find((c) => c.id === srv.categoryId);
-              const parentSub = subcategories.find((s) => s.id === srv.subcategoryId);
-              const effectiveLogo = getEffectiveLogoUrl(parentSub, parentCat);
+          {/* GROUPED BY CATEGORY -> SUBCATEGORY -> SERVICES */}
+          <div className="space-y-6">
+            {categories.map((cat) => {
+              const catSubs = subcategories.filter((s) => s.categoryId === cat.id);
 
               return (
-                <div
-                  key={srv.id}
-                  className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2 shadow-md hover:border-slate-700/80 transition"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden mt-0.5">
-                        <CategoryLogo
-                          logoUrl={effectiveLogo}
-                          iconName={srv.icon || 'Zap'}
-                          name={srv.name}
-                          className="w-full h-full flex items-center justify-center p-1"
-                          imageClassName="w-full h-full object-contain"
-                          fallbackIconClassName="w-4 h-4 text-purple-400"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[10px] uppercase font-bold text-purple-400 block truncate">
-                          {getCategoryName(srv.categoryId)} → {getSubcategoryName(srv.subcategoryId)}
-                        </span>
-                        <h4 className="font-bold text-sm text-white leading-snug">{srv.name}</h4>
-                      </div>
+                <div key={cat.id} className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-md">
+                  {/* Platform Category Header */}
+                  <div className="flex items-center gap-3 pb-3 border-b border-slate-800/80">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden">
+                      <CategoryLogo
+                        logoUrl={cat.logoUrl}
+                        iconName={cat.icon || cat.name}
+                        name={cat.name}
+                        className="w-full h-full flex items-center justify-center p-1"
+                        imageClassName="w-full h-full object-contain"
+                        fallbackIconClassName="w-4 h-4 text-purple-400"
+                      />
                     </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="font-mono font-bold text-sm text-emerald-400">
-                        {formatCurrency(srv.pricePer1000, 'INR')}
+                    <div>
+                      <h4 className="font-extrabold text-sm text-white uppercase tracking-wider">{cat.name}</h4>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {catSubs.length} {catSubs.length === 1 ? 'Subcategory' : 'Subcategories'}
                       </span>
-                      <span className="block text-[10px] text-slate-500">/ 1000</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800 text-slate-400 font-mono">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span>Min: {srv.minimumQuantity}</span>
-                      <span>·</span>
-                      <span>Max: {srv.maximumQuantity}</span>
-                      {srv.isPopular && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-sans font-bold">
-                          Popular
-                        </span>
-                      )}
-                    </div>
+                  {/* Subcategories list within Category */}
+                  {catSubs.length > 0 ? (
+                    <div className="space-y-4 pl-1 sm:pl-3 border-l-2 border-purple-500/20">
+                      {catSubs.map((sub) => {
+                        const subServices = services.filter((srv) => srv.subcategoryId === sub.id);
+                        const effectiveSubLogo = getSubcategoryLogoUrl(sub, cat);
 
-                    <div className="flex items-center gap-1 shrink-0">
+                        return (
+                          <div key={sub.id} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-3">
+                            {/* Subcategory Header with + Add Service button */}
+                            <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-slate-800/60">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
+                                  <CategoryLogo
+                                    logoUrl={effectiveSubLogo}
+                                    iconName={sub.icon || 'Zap'}
+                                    name={sub.name}
+                                    className="w-full h-full flex items-center justify-center p-1"
+                                    imageClassName="w-full h-full object-contain"
+                                    fallbackIconClassName="w-3.5 h-3.5 text-purple-400"
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h5 className="font-bold text-xs text-white">{sub.name}</h5>
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-purple-300 border border-purple-500/20">
+                                      {subServices.length} {subServices.length === 1 ? 'Service' : 'Services'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* CONTEXTUAL + Add Service Button */}
+                              <button
+                                onClick={() => openServiceModal(null, cat.id, sub.id)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-600/90 hover:bg-purple-500 text-white font-bold text-[11px] transition shadow-sm cursor-pointer shrink-0"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Add Service</span>
+                              </button>
+                            </div>
+
+                            {/* Services list inside Subcategory */}
+                            {subServices.length > 0 ? (
+                              <div className="space-y-2">
+                                {subServices.map((srv) => {
+                                  const effectiveLogo = getEffectiveLogoUrl(sub, cat);
+
+                                  return (
+                                    <div
+                                      key={srv.id}
+                                      className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2 shadow-sm hover:border-slate-700/80 transition"
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-start gap-2.5 min-w-0">
+                                          <div className="w-8 h-8 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden mt-0.5">
+                                            <CategoryLogo
+                                              logoUrl={effectiveLogo}
+                                              iconName={srv.icon || 'Zap'}
+                                              name={srv.name}
+                                              className="w-full h-full flex items-center justify-center p-1"
+                                              imageClassName="w-full h-full object-contain"
+                                              fallbackIconClassName="w-3.5 h-3.5 text-purple-400"
+                                            />
+                                          </div>
+                                          <div className="min-w-0">
+                                            <h6 className="font-bold text-xs text-white leading-snug">{srv.name}</h6>
+                                            {srv.description && (
+                                              <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{srv.description}</p>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        <div className="text-right shrink-0">
+                                          <span className="font-mono font-bold text-xs text-emerald-400">
+                                            {formatCurrency(srv.pricePer1000, 'INR')}
+                                          </span>
+                                          <span className="block text-[9px] text-slate-500">/ 1000</span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-800/80 text-slate-400 font-mono">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span>Min: {srv.minimumQuantity}</span>
+                                          <span>·</span>
+                                          <span>Max: {srv.maximumQuantity}</span>
+                                          {srv.speed && (
+                                            <>
+                                              <span>·</span>
+                                              <span className="text-purple-300">{srv.speed}</span>
+                                            </>
+                                          )}
+                                          {srv.isPopular && (
+                                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-sans font-bold">
+                                              Most Popular
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-1 shrink-0 font-sans">
+                                          <button
+                                            onClick={() => openServiceModal(srv)}
+                                            className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                                            title="Edit Service"
+                                          >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                await deleteDoc(doc(db, 'services', srv.id));
+                                                success(`Service "${srv.name}" deleted.`);
+                                              } catch (err: any) {
+                                                error(err?.message || 'Failed to delete service.');
+                                              }
+                                            }}
+                                            className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                                            title="Delete Service"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="p-2.5 text-center rounded-lg bg-slate-900/40 border border-dashed border-slate-800/80 text-slate-500 text-xs">
+                                No services under {sub.name} yet.{' '}
+                                <button
+                                  type="button"
+                                  onClick={() => openServiceModal(null, cat.id, sub.id)}
+                                  className="text-purple-400 hover:underline font-bold"
+                                >
+                                  + Add service
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-3 text-center rounded-xl bg-slate-950/40 border border-dashed border-slate-800/80 text-slate-500 text-xs">
+                      No subcategories under {cat.name} yet.{' '}
                       <button
-                        onClick={() => openServiceModal(srv)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                        title="Edit Service"
+                        type="button"
+                        onClick={() => openSubCatModal(null, cat.id)}
+                        className="text-purple-400 hover:underline font-bold"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await deleteDoc(doc(db, 'services', srv.id));
-                            success(`Service "${srv.name}" deleted.`);
-                          } catch (err: any) {
-                            error(err?.message || 'Failed to delete service.');
-                          }
-                        }}
-                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
-                        title="Delete Service"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        + Add subcategory
                       </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
+
+            {/* UNASSIGNED SERVICES SECTION */}
+            {(() => {
+              const validCatIds = new Set(categories.map((c) => c.id));
+              const validSubcatIds = new Set(subcategories.map((s) => s.id));
+              const unassignedServices = services.filter(
+                (srv) =>
+                  !srv.categoryId ||
+                  !srv.subcategoryId ||
+                  !validCatIds.has(srv.categoryId) ||
+                  !validSubcatIds.has(srv.subcategoryId)
+              );
+
+              if (unassignedServices.length === 0) return null;
+
+              return (
+                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-500/10">
+                    <div className="flex items-center gap-2">
+                      <FolderTree className="w-4 h-4 text-amber-400" />
+                      <h4 className="font-bold text-sm text-amber-300">Unassigned / Legacy Services</h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                        {unassignedServices.length}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-amber-400/80">
+                      Category or Subcategory missing or invalid. Edit to re-assign.
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {unassignedServices.map((srv) => (
+                      <div
+                        key={srv.id}
+                        className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 shrink-0">
+                            <Zap className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <h5 className="font-bold text-xs text-white">{srv.name}</h5>
+                            <span className="text-[10px] text-amber-400/80 font-mono">
+                              Cat ID: {srv.categoryId || 'none'} | Subcat ID: {srv.subcategoryId || 'none'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-mono font-bold text-xs text-emerald-400">
+                            {formatCurrency(srv.pricePer1000, 'INR')}
+                          </span>
+                          <button
+                            onClick={() => openServiceModal(srv)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                            title="Edit Service"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await deleteDoc(doc(db, 'services', srv.id));
+                                success(`Service "${srv.name}" deleted.`);
+                              } catch (err: any) {
+                                error(err?.message || 'Failed to delete service.');
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                            title="Delete Service"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1149,51 +1348,114 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
       })()}
 
       {/* SERVICE MODAL */}
-      {serviceModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-3 text-xs max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h4 className="font-bold text-white text-sm">
-                {serviceModal.item ? 'Edit Service' : 'New Service'}
-              </h4>
-              <button onClick={() => setServiceModal({ open: false, item: null })}>
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
-            </div>
+      {serviceModal.open && (() => {
+        const selectedSrvParentCat = categories.find((c) => c.id === srvCatId);
+        const selectedSrvParentSub = subcategories.find((s) => s.id === srvSubcatId);
 
-            <form onSubmit={handleSaveService} className="space-y-3">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Parent Category</label>
-                <select
-                  value={srvCatId}
-                  onChange={(e) => setSrvCatId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
-                >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-3 text-xs max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h4 className="font-bold text-white text-sm">
+                  {serviceModal.item ? 'Edit Service' : 'New Service'}
+                </h4>
+                <button onClick={() => setServiceModal({ open: false, item: null })}>
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Parent Subcategory</label>
-                <select
-                  value={srvSubcatId}
-                  onChange={(e) => setSrvSubcatId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
-                >
-                  {subcategories.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {getCategoryName(s.categoryId)} → {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <form onSubmit={handleSaveService} className="space-y-3">
+                {!serviceModal.item && isContextualServiceAdd ? (
+                  <div className="space-y-2.5 p-3.5 rounded-2xl bg-slate-950 border border-slate-800/90 shadow-inner">
+                    <div className="space-y-1">
+                      <label className="block text-slate-400 font-bold text-[10px] uppercase tracking-wider">
+                        Parent Category
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-white shrink-0 overflow-hidden">
+                          <CategoryLogo
+                            logoUrl={selectedSrvParentCat?.logoUrl}
+                            iconName={selectedSrvParentCat?.icon || selectedSrvParentCat?.name}
+                            name={selectedSrvParentCat?.name || 'Category'}
+                            className="w-full h-full p-0.5 flex items-center justify-center"
+                            imageClassName="w-full h-full object-contain"
+                            fallbackIconClassName="w-3 h-3 text-purple-400"
+                          />
+                        </div>
+                        <span className="font-extrabold text-xs text-white">
+                          {selectedSrvParentCat?.name || 'Category'}
+                        </span>
+                      </div>
+                    </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Service Name</label>
+                    <div className="space-y-1 pt-2 border-t border-slate-800/80">
+                      <label className="block text-slate-400 font-bold text-[10px] uppercase tracking-wider">
+                        Parent Subcategory
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-white shrink-0 overflow-hidden">
+                          <CategoryLogo
+                            logoUrl={getSubcategoryLogoUrl(selectedSrvParentSub, selectedSrvParentCat)}
+                            iconName={selectedSrvParentSub?.icon || 'Zap'}
+                            name={selectedSrvParentSub?.name || 'Subcategory'}
+                            className="w-full h-full p-0.5 flex items-center justify-center"
+                            imageClassName="w-full h-full object-contain"
+                            fallbackIconClassName="w-3 h-3 text-purple-400"
+                          />
+                        </div>
+                        <span className="font-extrabold text-xs text-white">
+                          {selectedSrvParentCat?.name || 'Category'} → {selectedSrvParentSub?.name || 'Subcategory'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-purple-400/90 font-medium italic pt-0.5">
+                      Automatically selected from the subcategory section
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Parent Category</label>
+                      <select
+                        value={srvCatId}
+                        onChange={(e) => {
+                          const newCatId = e.target.value;
+                          setSrvCatId(newCatId);
+                          const availableSubs = subcategories.filter((s) => s.categoryId === newCatId);
+                          setSrvSubcatId(availableSubs[0]?.id || '');
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-purple-500"
+                      >
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Parent Subcategory</label>
+                      <select
+                        value={srvSubcatId}
+                        onChange={(e) => setSrvSubcatId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-purple-500"
+                      >
+                        {subcategories
+                          .filter((s) => s.categoryId === srvCatId)
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Service Name</label>
                 <input
                   type="text"
                   required
@@ -1291,7 +1553,8 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
             </form>
           </div>
         </div>
-      )}
+      );
+    })()}
     </div>
   );
 };
