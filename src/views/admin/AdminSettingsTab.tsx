@@ -22,9 +22,35 @@ export const AdminSettingsTab: React.FC = () => {
   const [formData, setFormData] = useState<SiteSettings>({ ...settings });
   const [localMenuItems, setLocalMenuItems] = useState<MenuItemConfig[]>([...menuItems]);
   const [isSaving, setIsSaving] = useState(false);
+  const [logoPreviewError, setLogoPreviewError] = useState(false);
+
+  // Sync formData if settings update from context
+  React.useEffect(() => {
+    setFormData({ ...settings });
+    setLogoPreviewError(false);
+  }, [settings]);
 
   const handleFieldChange = (key: keyof SiteSettings, value: any) => {
+    if (key === 'logoUrl') setLogoPreviewError(false);
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      error('Logo image size must be less than 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      handleFieldChange('logoUrl', result);
+      setLogoPreviewError(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRateChange = (curr: 'USD' | 'EUR' | 'GBP', rate: number) => {
@@ -60,7 +86,7 @@ export const AdminSettingsTab: React.FC = () => {
   return (
     <form onSubmit={handleSaveAll} className="space-y-5 text-xs">
       {/* BRANDING & IDENTITY */}
-      <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-3">
+      <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
           <Palette className="w-4 h-4 text-purple-400" />
           <h3 className="font-bold text-sm text-white">Branding &amp; Identity</h3>
@@ -78,14 +104,74 @@ export const AdminSettingsTab: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Logo Image URL</label>
+            <label className="block text-slate-300 font-semibold mb-1">Brand Logo URL</label>
             <input
               type="text"
+              id="input-brand-logo-url"
               value={formData.logoUrl || ''}
               onChange={(e) => handleFieldChange('logoUrl', e.target.value)}
-              placeholder="https://.../logo.png"
-              className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white"
+              placeholder="https://.../logo.png or data:image/..."
+              className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs"
             />
+            <div className="flex items-center gap-2 mt-1.5">
+              <label className="cursor-pointer py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 font-semibold text-[11px] border border-slate-700 transition inline-flex items-center gap-1">
+                <span>Upload Logo File</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoFileUpload}
+                  className="hidden"
+                />
+              </label>
+
+              {formData.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleFieldChange('logoUrl', '')}
+                  className="py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 text-[11px] border border-slate-700 transition"
+                >
+                  Clear Logo
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Live Brand Logo Preview Box */}
+        <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center p-0.5 overflow-hidden">
+              {formData.logoUrl && !logoPreviewError ? (
+                <img
+                  src={formData.logoUrl}
+                  alt="Brand Logo Preview"
+                  onError={() => setLogoPreviewError(true)}
+                  className="w-9 h-9 object-cover rounded-xl"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-slate-950 font-black font-mono text-base shadow-lg shadow-emerald-500/25">
+                  IM
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="font-bold text-white text-xs flex items-center gap-2">
+                <span>Brand Header Logo Preview</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    formData.logoUrl && !logoPreviewError
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}
+                >
+                  {formData.logoUrl && !logoPreviewError ? 'Custom Logo Active' : 'Default Fallback (IM)'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Exact size and style as shown in the site header. Click &quot;Save All Settings&quot; to apply.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -140,7 +226,7 @@ export const AdminSettingsTab: React.FC = () => {
             type="text"
             value={formData.description || ''}
             onChange={(e) => handleFieldChange('description', e.target.value)}
-            placeholder="Sign in to access your SMM dashboard..."
+            placeholder="Sign in to access your dashboard..."
             className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white"
           />
         </div>

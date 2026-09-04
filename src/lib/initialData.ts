@@ -22,7 +22,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   primaryColor: '#10b981',
   secondaryColor: '#059669',
   welcomeMessage: 'Sign in to access premium social media services with instant processing and dedicated 24/7 support.',
-  mainHeading: 'INSTA MART SMM Panel',
+  mainHeading: 'INSTA MART Marketing Panel',
   description: 'Boost your social media presence with top-tier engagement, views, likes, and followers.',
   buttonText: 'Sign In to Dashboard',
   announcement: '🔥 Mega Sale: Instagram Reel Views at ₹0.41/1K! Instant manual fulfillment 24/7.',

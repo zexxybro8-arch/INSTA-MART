@@ -226,7 +226,7 @@ function MainLayout() {
   // Dynamic Browser Tab Title
   useEffect(() => {
     const titles: Record<AppRoute, string> = {
-      landing: 'INSTA MART - SMM Marketing Platform',
+      landing: 'INSTA MART - Social Marketing Platform',
       login: 'Sign In - INSTA MART',
       register: 'Register - INSTA MART',
       'forgot-password': 'Reset Password - INSTA MART',

@@ -16,6 +16,19 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+function sanitizeSiteSettings(data: SiteSettings): SiteSettings {
+  const sanitize = (val: string | undefined) =>
+    val ? val.replace(/\bSMM PANEL\b/gi, 'MARKETING PANEL').replace(/\bSMM\b/gi, '').replace(/\s+/g, ' ').trim() : val;
+
+  return {
+    ...data,
+    mainHeading: sanitize(data.mainHeading) || 'INSTA MART Marketing Panel',
+    tagline: sanitize(data.tagline) || 'World’s Fastest Social Media Marketing Panel',
+    welcomeMessage: sanitize(data.welcomeMessage),
+    description: sanitize(data.description),
+  };
+}
+
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
   const [menuItems, setMenuItems] = useState<MenuItemConfig[]>(INITIAL_MENU_ITEMS);
@@ -29,9 +42,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const settingsRef = doc(db, 'siteSettings', 'general');
     const unsubSettings = onSnapshot(settingsRef, (snap) => {
       if (snap.exists()) {
-        setSettings(snap.data() as SiteSettings);
+        setSettings(sanitizeSiteSettings(snap.data() as SiteSettings));
       } else {
-        setSettings(DEFAULT_SITE_SETTINGS);
+        setSettings(sanitizeSiteSettings(DEFAULT_SITE_SETTINGS));
       }
       setIsLoadingSettings(false);
     }, (err) => {

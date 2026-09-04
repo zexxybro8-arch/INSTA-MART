@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { WalletBadge } from '../common/WalletBadge';
@@ -16,6 +16,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDeposit, onNavigate, curre
   const { settings } = useSettings();
   const isAdminActive = isAdminSessionActive();
 
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [settings.logoUrl]);
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
@@ -25,11 +31,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDeposit, onNavigate, curre
           onClick={() => onNavigate(currentUser ? 'create' : '/')}
           className="flex items-center gap-2.5 cursor-pointer group select-none"
         >
-          {settings.logoUrl ? (
+          {settings.logoUrl && !logoError ? (
             <img
               src={settings.logoUrl}
-              alt={settings.siteName}
-              className="w-8 h-8 object-contain rounded-lg"
+              alt={settings.siteName || 'INSTA MART'}
+              onError={() => setLogoError(true)}
+              className="w-9 h-9 object-cover rounded-xl shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition"
             />
           ) : (
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-slate-950 font-black font-mono text-lg shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition">
@@ -42,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDeposit, onNavigate, curre
               {settings.siteName || 'INSTA MART'}
             </span>
             <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-widest leading-none">
-              SMM PANEL
+              MARKETING PANEL
             </span>
           </div>
         </div>

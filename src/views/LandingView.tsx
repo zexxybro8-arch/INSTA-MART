@@ -20,7 +20,7 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigate }) => {
         {/* Decorative Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-6 shadow-sm">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>SMM Marketing Platform</span>
+          <span>Social Marketing Platform</span>
         </div>
 
         {/* Large Heading */}

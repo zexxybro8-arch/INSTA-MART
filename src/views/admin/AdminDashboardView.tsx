@@ -3,9 +3,12 @@ import {
   collection,
   query,
   onSnapshot,
+  doc,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { formatCurrency } from '../../lib/currency';
+import { useToast } from '../../context/ToastContext';
 import { AdminOrdersTab } from './AdminOrdersTab';
 import { AdminCatalogTab } from './AdminCatalogTab';
 import { AdminUsersTab } from './AdminUsersTab';
@@ -19,7 +22,6 @@ import {
   Users,
   CreditCard,
   QrCode,
-  Layers,
   Headphones,
   Settings,
   Clock,
@@ -34,6 +36,9 @@ import {
   Zap,
   ChevronRight,
   Database,
+  RotateCcw,
+  Wallet,
+  AlertTriangle,
 } from 'lucide-react';
 import { logoutAdminSession, FIXED_ADMIN_ID } from '../../lib/adminAuth';
 
@@ -49,9 +54,28 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   onBackToUserPanel,
   onLogout,
 }) => {
+  const { success, error } = useToast();
+
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [catalogSection, setCatalogSection] = useState<CatalogSection>('categories');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Real-time metric counts
+  const [userCount, setUserCount] = useState(0);
+  const [orderCount, setOrderCount] = useState(0);
+  const [pendingOrders, setPendingOrders] = useState(0);
+  const [pendingDeposits, setPendingDeposits] = useState(0);
+  const [openTickets, setOpenTickets] = useState(0);
+  const [activeServices, setActiveServices] = useState(0);
+
+  // Financial statistics
+  const [totalSpentAllUsers, setTotalSpentAllUsers] = useState(0);
+  const [spentResetAt, setSpentResetAt] = useState<number>(0);
+  const [todayDeposit, setTodayDeposit] = useState<number>(0);
+
+  // Reset Total Spent modal
+  const [showResetSpentModal, setShowResetSpentModal] = useState(false);
+  const [isResettingSpent, setIsResettingSpent] = useState(false);
 
   const handleAdminLogout = () => {
     logoutAdminSession();
@@ -62,55 +86,164 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     }
   };
 
-  // Real-time metric counts
-  const [userCount, setUserCount] = useState(0);
-  const [orderCount, setOrderCount] = useState(0);
-  const [pendingOrders, setPendingOrders] = useState(0);
-  const [pendingDeposits, setPendingDeposits] = useState(0);
-  const [openTickets, setOpenTickets] = useState(0);
-  const [activeServices, setActiveServices] = useState(0);
-  const [totalSpentAllUsers, setTotalSpentAllUsers] = useState(0);
-
+  // Realtime listeners for overview metrics & statistics
   useEffect(() => {
-    // Listen to users
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-      setUserCount(snap.size);
-      let spent = 0;
-      snap.docs.forEach((d) => {
-        spent += d.data().totalSpent || 0;
-      });
-      setTotalSpentAllUsers(spent);
-    });
+    // 1. Listen to siteSettings/general for spentResetAt timestamp
+    const unsubSettings = onSnapshot(
+      doc(db, 'siteSettings', 'general'),
+      (snap) => {
+        if (snap.exists()) {
+          setSpentResetAt(Number(snap.data().spentResetAt) || 0);
+        }
+      },
+      (err) => console.warn('siteSettings listener error:', err)
+    );
 
-    // Listen to orders
-    const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
-      setOrderCount(snap.size);
-      setPendingOrders(snap.docs.filter((d) => d.data().status === 'Pending').length);
-    });
+    // 2. Listen to users
+    const unsubUsers = onSnapshot(
+      collection(db, 'users'),
+      (snap) => {
+        setUserCount(snap.size);
+      },
+      (err) => console.warn('users listener error:', err)
+    );
 
-    // Listen to deposits
-    const unsubDeposits = onSnapshot(collection(db, 'deposits'), (snap) => {
-      setPendingDeposits(snap.docs.filter((d) => d.data().status === 'Pending').length);
-    });
+    // 3. Listen to deposits (for pending count)
+    const unsubDeposits = onSnapshot(
+      collection(db, 'deposits'),
+      (snap) => {
+        setPendingDeposits(snap.docs.filter((d) => d.data().status === 'Pending').length);
+      },
+      (err) => console.warn('deposits listener error:', err)
+    );
 
-    // Listen to tickets
-    const unsubTickets = onSnapshot(collection(db, 'tickets'), (snap) => {
-      setOpenTickets(snap.docs.filter((d) => d.data().status === 'Open').length);
-    });
+    // 4. Listen to tickets
+    const unsubTickets = onSnapshot(
+      collection(db, 'tickets'),
+      (snap) => {
+        setOpenTickets(snap.docs.filter((d) => d.data().status === 'Open').length);
+      },
+      (err) => console.warn('tickets listener error:', err)
+    );
 
-    // Listen to services
-    const unsubServices = onSnapshot(collection(db, 'services'), (snap) => {
-      setActiveServices(snap.docs.filter((d) => d.data().isActive !== false).length);
-    });
+    // 5. Listen to services
+    const unsubServices = onSnapshot(
+      collection(db, 'services'),
+      (snap) => {
+        setActiveServices(snap.docs.filter((d) => d.data().isActive !== false).length);
+      },
+      (err) => console.warn('services listener error:', err)
+    );
+
+    // 6. Listen to transactions for TODAY DEPOSIT calculation
+    const unsubTxns = onSnapshot(
+      collection(db, 'transactions'),
+      (snap) => {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfTodayTs = startOfToday.getTime();
+
+        let todaySum = 0;
+        const processedTxIds = new Set<string>();
+
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          const createdAt = Number(data.createdAt) || 0;
+          const type = data.type;
+          const status = data.status;
+          const txId = d.id;
+
+          // Filter transactions created on or after today's midnight
+          if (createdAt >= startOfTodayTs) {
+            // Count wallet additions (User deposits and Admin manual credits)
+            const isAddition =
+              type === 'Deposit' ||
+              type === 'Admin Credit' ||
+              type === 'deposit' ||
+              type === 'wallet_credit';
+
+            // Must be completed/approved status
+            const isCompleted = status === 'Completed' || status === 'Approved' || !status;
+
+            if (isAddition && isCompleted && !processedTxIds.has(txId)) {
+              processedTxIds.add(txId);
+              todaySum += Number(data.amount) || 0;
+            }
+          }
+        });
+
+        setTodayDeposit(todaySum);
+      },
+      (err) => console.warn('transactions listener error:', err)
+    );
 
     return () => {
+      unsubSettings();
       unsubUsers();
-      unsubOrders();
       unsubDeposits();
       unsubTickets();
       unsubServices();
+      unsubTxns();
     };
   }, []);
+
+  // Listen to orders to calculate Total Spent (only orders created AFTER spentResetAt)
+  useEffect(() => {
+    const unsubOrders = onSnapshot(
+      collection(db, 'orders'),
+      (snap) => {
+        setOrderCount(snap.size);
+        setPendingOrders(snap.docs.filter((d) => d.data().status === 'Pending').length);
+
+        let totalSpent = 0;
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          const orderCreatedAt = Number(data.createdAt) || 0;
+          const orderStatus = data.status;
+
+          // Only count eligible orders created on or after the spentResetAt timestamp
+          if (orderCreatedAt >= spentResetAt) {
+            if (orderStatus !== 'Cancelled' && orderStatus !== 'Refunded') {
+              const amt =
+                Number(data.totalAmount) ||
+                (Number(data.servicePrice) * (Number(data.quantity) || 0)) / 1000 ||
+                0;
+              totalSpent += amt;
+            }
+          }
+        });
+
+        setTotalSpentAllUsers(totalSpent);
+      },
+      (err) => console.warn('orders listener error:', err)
+    );
+
+    return () => unsubOrders();
+  }, [spentResetAt]);
+
+  // Handle resetting Total Spent timestamp in Firestore
+  const handleConfirmResetSpent = async () => {
+    setIsResettingSpent(true);
+    try {
+      const settingsRef = doc(db, 'siteSettings', 'general');
+      await setDoc(
+        settingsRef,
+        {
+          spentResetAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+
+      success('Total Spent dashboard statistic has been reset to ₹0.');
+      setShowResetSpentModal(false);
+    } catch (err: any) {
+      console.error('Reset Total Spent error:', err);
+      error(err?.message || 'Failed to reset Total Spent statistic.');
+    } finally {
+      setIsResettingSpent(false);
+    }
+  };
 
   const navMenuItems = [
     {
@@ -417,7 +550,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* TAB CONTENT: OVERVIEW METRICS */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {/* Metric 1: Pending Orders */}
             <div
               onClick={() => setActiveTab('orders')}
@@ -448,19 +581,48 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <span className="text-[10px] text-slate-500">Needs verification</span>
             </div>
 
-            {/* Metric 3: Total Revenue Spent */}
-            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
-              <div className="flex items-center justify-between text-slate-400 mb-1">
+            {/* Metric 3: Total Spent with Reset Action */}
+            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md relative group flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 mb-1 gap-1">
                 <span className="text-[11px] font-semibold uppercase">Total Spent</span>
-                <DollarSign className="w-4 h-4 text-purple-400" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowResetSpentModal(true);
+                    }}
+                    id="btn-reset-total-spent"
+                    className="p-1 px-2 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 text-[10px] font-bold border border-slate-700 hover:border-rose-500/30 transition flex items-center gap-1 active:scale-95"
+                    title="Reset Total Spent statistic to ₹0"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset</span>
+                  </button>
+                  <DollarSign className="w-4 h-4 text-purple-400 shrink-0" />
+                </div>
               </div>
               <div className="font-mono font-black text-2xl text-white">
                 {formatCurrency(totalSpentAllUsers, 'INR')}
               </div>
-              <span className="text-[10px] text-slate-500">Across all customer orders</span>
+              <span className="text-[10px] text-slate-500 mt-1">
+                {spentResetAt > 0 ? 'Since last reset' : 'Across customer orders'}
+              </span>
             </div>
 
-            {/* Metric 4: Registered Users */}
+            {/* Metric 4: TODAY DEPOSIT */}
+            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 mb-1">
+                <span className="text-[11px] font-semibold uppercase">Today Deposit</span>
+                <Wallet className="w-4 h-4 text-emerald-400 shrink-0" />
+              </div>
+              <div className="font-mono font-black text-2xl text-emerald-400">
+                {formatCurrency(todayDeposit, 'INR')}
+              </div>
+              <span className="text-[10px] text-slate-500 mt-1">Wallet additions today</span>
+            </div>
+
+            {/* Metric 5: Registered Users */}
             <div
               onClick={() => setActiveTab('users')}
               className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-purple-500/40 cursor-pointer transition shadow-md"
@@ -475,7 +637,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <span className="text-[10px] text-slate-500">Registered accounts</span>
             </div>
 
-            {/* Metric 5: Active Services */}
+            {/* Metric 6: Active Services */}
             <div
               onClick={() => {
                 setActiveTab('catalog');
@@ -493,7 +655,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <span className="text-[10px] text-slate-500">Catalog offerings</span>
             </div>
 
-            {/* Metric 6: Open Tickets */}
+            {/* Metric 7: Open Tickets */}
             <div
               onClick={() => setActiveTab('tickets')}
               className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-purple-500/40 cursor-pointer transition shadow-md"
@@ -518,6 +680,63 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <p className="text-purple-200/90 leading-relaxed text-[11px]">
               INSTA MART operates on strict manual order processing. When orders are placed, they start with status <strong className="text-white font-semibold">Pending</strong>. You can click the hamburger menu (☰) on the top left or select the <button onClick={() => setActiveTab('orders')} className="underline font-bold text-white">Orders section</button> to update progress, adjust start/current counts, and mark orders as Completed or Partial.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMATION DIALOG FOR TOTAL SPENT RESET */}
+      {showResetSpentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 text-white relative">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-extrabold text-white">Reset Total Spent Statistic?</h3>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-medium">
+              Are you sure you want to reset Total Spent to <strong className="text-white font-mono font-bold">₹0</strong>?
+            </p>
+
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-[11px] text-slate-400 space-y-1.5">
+              <div className="text-slate-200 font-bold mb-1 flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Safety Guarantees:</span>
+              </div>
+              <div>• Customer order history will NOT be deleted.</div>
+              <div>• Customer wallet balances will NOT be modified.</div>
+              <div>• Individual order values remain completely untouched.</div>
+              <div>• Only the dashboard&apos;s cumulative Total Spent counter resets to ₹0.</div>
+              <div>• Future completed orders will begin accumulating from ₹0.</div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                disabled={isResettingSpent}
+                onClick={() => setShowResetSpentModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResettingSpent}
+                onClick={handleConfirmResetSpent}
+                id="btn-confirm-reset-total-spent"
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-900/40 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isResettingSpent ? (
+                  <span>Resetting...</span>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Yes, Reset to ₹0</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
