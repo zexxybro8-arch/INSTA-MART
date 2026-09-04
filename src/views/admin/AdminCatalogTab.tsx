@@ -91,6 +91,7 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
   const [subCatLogoUrl, setSubCatLogoUrl] = useState('');
   const [subCatDesc, setSubCatDesc] = useState('');
   const [subCatSort, setSubCatSort] = useState(0);
+  const [isContextualAdd, setIsContextualAdd] = useState(false);
 
   // Service modal
   const [serviceModal, setServiceModal] = useState<{ open: boolean; item: Service | null }>({
@@ -207,7 +208,7 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
   };
 
   // Subcategory Actions
-  const openSubCatModal = (sub: Subcategory | null) => {
+  const openSubCatModal = (sub: Subcategory | null, presetParentId?: string) => {
     if (sub) {
       setSubCatName(sub.name);
       setSubCatParentId(sub.categoryId);
@@ -215,14 +216,17 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
       setSubCatLogoUrl(sub.logoUrl || '');
       setSubCatDesc(sub.description);
       setSubCatSort(sub.sortOrder);
+      setIsContextualAdd(false);
       setSubcategoryModal({ open: true, item: sub });
     } else {
+      const parentId = presetParentId || categories[0]?.id || '';
       setSubCatName('');
-      setSubCatParentId(categories[0]?.id || '');
+      setSubCatParentId(parentId);
       setSubCatIcon('Zap');
       setSubCatLogoUrl('');
       setSubCatDesc('');
       setSubCatSort(subcategories.length + 1);
+      setIsContextualAdd(!!presetParentId);
       setSubcategoryModal({ open: true, item: null });
     }
   };
@@ -469,104 +473,245 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
 
       {/* SECTION 2: SUBCATEGORIES */}
       {activeSection === 'subcategories' && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
                 Service Subcategories
               </h3>
               <p className="text-[11px] text-slate-500">
-                Subcategories inherit their parent platform logo unless an override logo URL is set
+                Subcategories are grouped by platform category. Add subcategories directly under their parent platform.
               </p>
             </div>
-            <button
-              onClick={() => openSubCatModal(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Subcategory</span>
-            </button>
+            {categories.length === 0 && (
+              <button
+                onClick={() => openCatModal(null)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Category First</span>
+              </button>
+            )}
           </div>
 
-          <div className="space-y-2">
-            {subcategories.map((sub) => {
-              const parentCat = categories.find((c) => c.id === sub.categoryId);
-              const effectiveLogo = getSubcategoryLogoUrl(sub, parentCat);
-              const isOverridden = hasCustomSubcategoryLogo(sub);
+          {/* GROUPED BY PLATFORM CATEGORY */}
+          <div className="space-y-4">
+            {categories.map((cat) => {
+              const catSubs = subcategories.filter((s) => s.categoryId === cat.id);
 
               return (
                 <div
-                  key={sub.id}
-                  className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3 shadow-md hover:border-slate-700/80 transition"
+                  key={cat.id}
+                  className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-md"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden">
-                      <CategoryLogo
-                        logoUrl={effectiveLogo}
-                        iconName={sub.icon || 'Zap'}
-                        name={sub.name}
-                        className="w-full h-full flex items-center justify-center p-1.5"
-                        imageClassName="w-full h-full object-contain"
-                        fallbackIconClassName="w-5 h-5 text-purple-400"
-                      />
+                  {/* Category Group Header */}
+                  <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden">
+                        <CategoryLogo
+                          logoUrl={cat.logoUrl}
+                          iconName={cat.icon || cat.name}
+                          name={cat.name}
+                          className="w-full h-full flex items-center justify-center p-1"
+                          imageClassName="w-full h-full object-contain"
+                          fallbackIconClassName="w-4 h-4 text-purple-400"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-extrabold text-sm text-white uppercase tracking-wider">
+                            {cat.name}
+                          </h4>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                            {catSubs.length} {catSubs.length === 1 ? 'Subcategory' : 'Subcategories'}
+                          </span>
+                        </div>
+                        {cat.description && (
+                          <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{cat.description}</p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-400 uppercase tracking-wide">
-                        <span>{parentCat?.name || getCategoryName(sub.categoryId)}</span>
-                        <ChevronRight className="w-3 h-3 text-slate-600" />
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-bold text-sm text-white">{sub.name}</h4>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            sub.isActive ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'
-                          }`}
-                        >
-                          {sub.isActive ? 'Active' : 'Hidden'}
-                        </span>
-                        {isOverridden ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                            Custom Logo Override
-                          </span>
-                        ) : parentCat?.logoUrl ? (
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/70 flex items-center gap-1">
-                            <CornerDownRight className="w-2.5 h-2.5 text-purple-400" />
-                            Inherited from {parentCat.name}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{sub.description || 'No description'}</p>
-                    </div>
+                    {/* Contextual + Add Subcategory Button */}
+                    <button
+                      onClick={() => openSubCatModal(null, cat.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30 shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Subcategory</span>
+                    </button>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => openSubCatModal(sub)}
-                      className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                      title="Edit Subcategory"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await deleteDoc(doc(db, 'subcategories', sub.id));
-                          success(`Subcategory "${sub.name}" deleted.`);
-                        } catch (err: any) {
-                          error(err?.message || 'Failed to delete subcategory.');
-                        }
-                      }}
-                      className="p-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
-                      title="Delete Subcategory"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {/* Subcategories list under this category */}
+                  {catSubs.length > 0 ? (
+                    <div className="space-y-2">
+                      {catSubs.map((sub) => {
+                        const effectiveLogo = getSubcategoryLogoUrl(sub, cat);
+                        const isOverridden = hasCustomSubcategoryLogo(sub);
+
+                        return (
+                          <div
+                            key={sub.id}
+                            className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between gap-3 shadow-inner hover:border-slate-700/80 transition"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-200 shrink-0 shadow-inner overflow-hidden">
+                                <CategoryLogo
+                                  logoUrl={effectiveLogo}
+                                  iconName={sub.icon || 'Zap'}
+                                  name={sub.name}
+                                  className="w-full h-full flex items-center justify-center p-1"
+                                  imageClassName="w-full h-full object-contain"
+                                  fallbackIconClassName="w-4 h-4 text-purple-400"
+                                />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h5 className="font-bold text-xs text-white">{sub.name}</h5>
+                                  <span
+                                    className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                      sub.isActive
+                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                        : 'bg-slate-800 text-slate-500'
+                                    }`}
+                                  >
+                                    {sub.isActive ? 'Active' : 'Hidden'}
+                                  </span>
+                                  {isOverridden ? (
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                      <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                                      Custom Logo
+                                    </span>
+                                  ) : cat.logoUrl ? (
+                                    <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60 flex items-center gap-1">
+                                      <CornerDownRight className="w-2.5 h-2.5 text-purple-400" />
+                                      Inherited
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {sub.description && (
+                                  <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                                    {sub.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => openSubCatModal(sub)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                                title="Edit Subcategory"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await deleteDoc(doc(db, 'subcategories', sub.id));
+                                    success(`Subcategory "${sub.name}" deleted.`);
+                                  } catch (err: any) {
+                                    error(err?.message || 'Failed to delete subcategory.');
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                                title="Delete Subcategory"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-3 text-center rounded-xl bg-slate-950/40 border border-dashed border-slate-800/80 text-slate-500 text-xs">
+                      No subcategories under {cat.name} yet.{' '}
+                      <button
+                        type="button"
+                        onClick={() => openSubCatModal(null, cat.id)}
+                        className="text-purple-400 hover:underline font-bold"
+                      >
+                        + Add subcategory
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
+
+            {/* UNASSIGNED SUBCATEGORIES SECTION */}
+            {(() => {
+              const validCatIds = new Set(categories.map((c) => c.id));
+              const unassignedSubs = subcategories.filter(
+                (sub) => !sub.categoryId || !validCatIds.has(sub.categoryId)
+              );
+
+              if (unassignedSubs.length === 0) return null;
+
+              return (
+                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-500/10">
+                    <div className="flex items-center gap-2">
+                      <FolderTree className="w-4 h-4 text-amber-400" />
+                      <h4 className="font-bold text-sm text-amber-300">Unassigned Subcategories</h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                        {unassignedSubs.length}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-amber-400/80">
+                      Parent category missing or invalid. Edit to re-assign.
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {unassignedSubs.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 shrink-0">
+                            <Zap className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-xs text-white">{sub.name}</h5>
+                            <span className="text-[10px] text-amber-400/80 font-mono">
+                              Unassigned (Parent ID: {sub.categoryId || 'none'})
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => openSubCatModal(sub)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                            title="Edit Subcategory"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await deleteDoc(doc(db, 'subcategories', sub.id));
+                                success(`Subcategory "${sub.name}" deleted.`);
+                              } catch (err: any) {
+                                error(err?.message || 'Failed to delete subcategory.');
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                            title="Delete Subcategory"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -831,20 +976,46 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
               </div>
 
               <form onSubmit={handleSaveSubcategory} className="space-y-3.5">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Parent Platform Category</label>
-                  <select
-                    value={subCatParentId}
-                    onChange={(e) => setSubCatParentId(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-purple-500"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.logoUrl ? '(Has Platform Logo)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!subcategoryModal.item && isContextualAdd ? (
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800/90 space-y-1 shadow-inner">
+                    <label className="block text-slate-400 font-bold text-[10px] uppercase tracking-wider">
+                      Parent Platform
+                    </label>
+                    <div className="flex items-center gap-2.5 pt-0.5">
+                      <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-white shrink-0 overflow-hidden">
+                        <CategoryLogo
+                          logoUrl={selectedParent?.logoUrl}
+                          iconName={selectedParent?.icon || selectedParent?.name}
+                          name={selectedParent?.name || 'Platform'}
+                          className="w-full h-full p-0.5 flex items-center justify-center"
+                          imageClassName="w-full h-full object-contain"
+                          fallbackIconClassName="w-3.5 h-3.5 text-purple-400"
+                        />
+                      </div>
+                      <span className="font-extrabold text-sm text-white">
+                        {selectedParent?.name || 'Platform'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-purple-400/90 font-medium italic pt-1">
+                      Automatically selected from the platform section
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Parent Platform Category</label>
+                    <select
+                      value={subCatParentId}
+                      onChange={(e) => setSubCatParentId(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-purple-500"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.logoUrl ? '(Has Platform Logo)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Subcategory Name</label>
