@@ -36,7 +36,9 @@ import {
   Link as LinkIcon,
   Sparkles,
   CornerDownRight,
+  Upload,
 } from 'lucide-react';
+import { BulkServiceImportModal } from '../../components/admin/BulkServiceImportModal';
 
 interface AdminCatalogTabProps {
   currentSection?: 'categories' | 'subcategories' | 'services';
@@ -109,6 +111,7 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
   const [srvIsPopular, setSrvIsPopular] = useState(false);
   const [srvSort, setSrvSort] = useState(0);
   const [isContextualServiceAdd, setIsContextualServiceAdd] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
   // Real-time catalog subscriptions
   useEffect(() => {
@@ -734,14 +737,26 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
                 Services are organized by platform category and subcategory. Use "+ Add Service" under any subcategory for instant contextual creation.
               </p>
             </div>
-            {/* GLOBAL + Add Service Button */}
-            <button
-              onClick={() => openServiceModal(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30 shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Service</span>
-            </button>
+            {/* ACTION BUTTONS */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setBulkModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 font-bold text-xs transition border border-purple-500/30 hover:border-purple-500/60 shadow-md cursor-pointer shrink-0"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Bulk Add Services</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openServiceModal(null)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-md shadow-purple-900/30 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Service</span>
+              </button>
+            </div>
           </div>
 
           {/* GROUPED BY CATEGORY -> SUBCATEGORY -> SERVICES */}
@@ -1555,6 +1570,15 @@ export const AdminCatalogTab: React.FC<AdminCatalogTabProps> = ({
         </div>
       );
     })()}
+
+      {/* BULK SERVICE IMPORT MODAL */}
+      <BulkServiceImportModal
+        isOpen={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        categories={categories}
+        subcategories={subcategories}
+        services={services}
+      />
     </div>
   );
 };
