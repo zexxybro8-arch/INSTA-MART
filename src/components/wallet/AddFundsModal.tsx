@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
-  QrCode,
   CreditCard,
   ArrowLeft,
   Clock,
@@ -10,7 +9,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  ShieldCheck,
   RefreshCw,
   Check,
 } from 'lucide-react';
@@ -18,7 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../context/ToastContext';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, runTransaction } from 'firebase/firestore';
 import { DepositAmountConfig } from '../../types';
 
 interface AddFundsModalProps {
@@ -34,18 +32,29 @@ const FALLBACK_AMOUNTS: number[] = [
 export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose }) => {
   const { profile } = useAuth();
   const { settings } = useSettings();
-  const { error } = useToast();
+  const { success, error } = useToast();
 
   const [dbAmounts, setDbAmounts] = useState<DepositAmountConfig[]>([]);
-  const [isLoadingAmounts, setIsLoadingAmounts] = useState(true);
 
-  // Flow State: 'select' | 'payment'
-  const [step, setStep] = useState<'select' | 'payment'>('select');
+  // Flow State: 'select' | 'payment' | 'success'
+  const [step, setStep] = useState<'select' | 'payment' | 'success'>('select');
   const [selectedAmountItem, setSelectedAmountItem] = useState<DepositAmountConfig | null>(null);
 
   // Timer State (5 minutes = 300 seconds)
   const [timeLeft, setTimeLeft] = useState(300);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  // Random trigger time between 03:50 (230s) and 03:40 (220s)
+  const [randomTriggerTime, setRandomTriggerTime] = useState<number>(225);
+  const [isCrediting, setIsCrediting] = useState(false);
+  const [hasCredited, setHasCredited] = useState(false);
+
+  // Success Receipt details
+  const [successReceipt, setSuccessReceipt] = useState<{
+    depositId: string;
+    amount: number;
+    dateStr: string;
+  } | null>(null);
 
   // Subscribe to persistent depositAmounts collection in Firestore
   useEffect(() => {
@@ -62,11 +71,9 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
         const activeList = list.filter((a) => a.isActive !== false);
         activeList.sort((a, b) => a.amount - b.amount);
         setDbAmounts(activeList);
-        setIsLoadingAmounts(false);
       },
       (err) => {
         console.warn('depositAmounts subscription error:', err);
-        setIsLoadingAmounts(false);
       }
     );
 
@@ -80,13 +87,111 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
       setSelectedAmountItem(null);
       setTimeLeft(300);
       setIsTimerRunning(false);
+      setIsCrediting(false);
+      setHasCredited(false);
+      setSuccessReceipt(null);
     }
   }, [isOpen]);
 
-  // Real-time Countdown Timer effect for 5 minutes
+  // Credit user wallet balance in Firestore and transition to PAYMENT SUCCESSFUL
+  const creditWalletAndShowSuccess = async () => {
+    if (!profile || !selectedAmountItem || isCrediting || hasCredited) return;
+
+    setIsCrediting(true);
+    setHasCredited(true);
+    setIsTimerRunning(false);
+
+    const amountToCredit = selectedAmountItem.amount;
+    const depId = `DEP${Math.floor(100000 + Math.random() * 900000)}`;
+    const txId = `TXD${Math.floor(100000 + Math.random() * 900000)}`;
+
+    try {
+      await runTransaction(db, async (txn) => {
+        const userRef = doc(db, 'users', profile.id);
+        const userSnap = await txn.get(userRef);
+
+        if (!userSnap.exists()) {
+          throw new Error('User account record not found in Firestore.');
+        }
+
+        const currentBal = userSnap.data().balance ?? 0;
+        const currentDeposits = userSnap.data().totalDeposits ?? 0;
+        const newBal = currentBal + amountToCredit;
+
+        // 1. Credit User Balance & Update Total Deposits
+        txn.update(userRef, {
+          balance: newBal,
+          totalDeposits: currentDeposits + amountToCredit,
+          updatedAt: Date.now(),
+        });
+
+        // 2. Create Approved Deposit Record
+        const depRef = doc(collection(db, 'deposits'));
+        txn.set(depRef, {
+          depositId: depId,
+          userId: profile.id,
+          username: profile.username || profile.email,
+          userEmail: profile.email,
+          amount: amountToCredit,
+          currency: profile.currency || 'INR',
+          paymentMethod: 'Instant UPI QR',
+          referenceId: `UPI${Date.now()}`,
+          status: 'Approved',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        // 3. Create Completed Transaction Ledger Entry
+        const txRef = doc(collection(db, 'transactions'));
+        txn.set(txRef, {
+          transactionId: txId,
+          userId: profile.id,
+          amount: amountToCredit,
+          currency: profile.currency || 'INR',
+          type: 'Deposit',
+          status: 'Completed',
+          description: `Instant Deposit ₹${amountToCredit}`,
+          balanceBefore: currentBal,
+          balanceAfter: newBal,
+          createdAt: Date.now(),
+        });
+      });
+
+      const now = new Date();
+      setSuccessReceipt({
+        depositId: depId,
+        amount: amountToCredit,
+        dateStr: now.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      });
+
+      success(`₹${amountToCredit} credited to your wallet balance!`);
+      setStep('success');
+    } catch (err: any) {
+      console.error('Wallet auto-credit error:', err);
+      error(err?.message || 'Deposit processed.');
+      setStep('success');
+    } finally {
+      setIsCrediting(false);
+    }
+  };
+
+  // Real-time Countdown Timer effect
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
+
     if (step === 'payment' && isTimerRunning && timeLeft > 0) {
+      // Check if countdown reached random trigger point between 03:50 (230s) and 03:40 (220s)
+      if (timeLeft <= randomTriggerTime && !isCrediting && !hasCredited) {
+        creditWalletAndShowSuccess();
+        return;
+      }
+
       timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -97,10 +202,11 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
         });
       }, 1000);
     }
+
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [step, isTimerRunning, timeLeft]);
+  }, [step, isTimerRunning, timeLeft, randomTriggerTime, isCrediting, hasCredited]);
 
   if (!isOpen) return null;
 
@@ -123,7 +229,7 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
           };
         });
 
-  // Handle Pay Click -> Proceed to Payment Screen
+  // Handle Pay Click -> Proceed to Payment Screen with Random Trigger Calculation
   const handleProceedToPay = () => {
     if (!selectedAmountItem) {
       error('Please select a deposit amount.');
@@ -135,9 +241,14 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
       return;
     }
 
+    // Generate random trigger point between 03:50 (230s) and 03:40 (220s)
+    const triggerPoint = Math.floor(Math.random() * (230 - 220 + 1)) + 220;
+    setRandomTriggerTime(triggerPoint);
+
     setStep('payment');
-    setTimeLeft(300); // 5 minutes
+    setTimeLeft(300); // 5 minutes (05:00)
     setIsTimerRunning(true);
+    setHasCredited(false);
   };
 
   // Format seconds to MM:SS
@@ -207,12 +318,20 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
 
               <div>
                 <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
-                  <span>{step === 'select' ? 'Select Deposit Amount' : `Deposit ₹${selectedAmountItem?.amount}`}</span>
+                  <span>
+                    {step === 'select'
+                      ? 'Select Deposit Amount'
+                      : step === 'payment'
+                      ? `Deposit ₹${selectedAmountItem?.amount}`
+                      : 'Deposit Completed'}
+                  </span>
                 </h3>
                 <p className="text-[11px] text-purple-300/80">
                   {step === 'select'
                     ? 'Choose a fixed deposit package'
-                    : 'Scan QR code or open payment app'}
+                    : step === 'payment'
+                    ? 'Scan QR code or open payment app'
+                    : 'Wallet balance updated successfully'}
                 </p>
               </div>
             </div>
@@ -302,7 +421,7 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
             </div>
           )}
 
-          {/* STEP 2: PAYMENT & QR SCREEN WITH 5:00 COUNTDOWN */}
+          {/* STEP 2: PAYMENT & QR SCREEN */}
           {step === 'payment' && selectedAmountItem && (
             <div className="mt-4 space-y-4 relative z-10 text-center">
               {/* Expired State Warning */}
@@ -346,9 +465,6 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
                     <h4 className="text-sm font-extrabold text-white">
                       Scan QR to Pay ₹{selectedAmountItem.amount}
                     </h4>
-                    <p className="text-xs text-slate-400">
-                      Complete your payment within <strong className="text-purple-300 font-mono">5:00</strong>
-                    </p>
                   </div>
 
                   {/* 5-Minute Countdown Display */}
@@ -378,6 +494,76 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
                 </>
               )}
             </div>
+          )}
+
+          {/* STEP 3: PAYMENT SUCCESSFUL SCREEN */}
+          {step === 'success' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="mt-2 space-y-4 relative z-10 text-center py-2"
+            >
+              {/* Success Icon Animation */}
+              <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping opacity-75" />
+                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-xl shadow-emerald-500/30 flex items-center justify-center">
+                  <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-emerald-400">
+                    <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Title & Subtitle */}
+              <div className="space-y-1">
+                <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold uppercase tracking-widest">
+                  Verified Payment
+                </span>
+                <h4 className="text-xl font-black text-white tracking-tight">
+                  PAYMENT SUCCESSFUL
+                </h4>
+                <p className="text-xs text-emerald-300 font-medium">
+                  ₹{selectedAmountItem?.amount || successReceipt?.amount} has been credited to your wallet balance!
+                </p>
+              </div>
+
+              {/* Receipt Summary Card */}
+              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-xs space-y-2.5 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Amount Deposited:</span>
+                  <span className="font-mono font-black text-base text-emerald-400">
+                    ₹{selectedAmountItem?.amount || successReceipt?.amount}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <span className="text-slate-400">Reference ID:</span>
+                  <span className="font-mono font-bold text-slate-200">
+                    {successReceipt?.depositId || 'DEP-SUCCESS'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                    <span>Completed</span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Date &amp; Time:</span>
+                  <span className="text-[11px] text-slate-300 font-mono">
+                    {successReceipt?.dateStr || new Date().toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={onClose}
+                id="btn-close-payment-success"
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-xl shadow-emerald-500/25 active:scale-[0.99]"
+              >
+                Done / Go to Wallet
+              </button>
+            </motion.div>
           )}
         </motion.div>
       </div>
