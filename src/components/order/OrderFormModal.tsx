@@ -155,9 +155,9 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
           userId: profile.id,
           username: profile.username,
           userEmail: profile.email,
-          categoryId: category?.id ?? service.categoryId,
+          categoryId: category?.id ?? service.categoryId ?? '',
           categoryName: category?.name ?? 'General',
-          subcategoryId: subcategory?.id ?? service.subcategoryId,
+          subcategoryId: subcategory?.id ?? service.subcategoryId ?? '',
           subcategoryName: subcategory?.name ?? 'Services',
           serviceId: service.id,
           serviceName: service.name,
@@ -172,8 +172,12 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
           status: 'Pending', // Initial status MUST be Pending
           createdAt: Date.now(),
           updatedAt: Date.now(),
-          customerNote: customerNote.trim() || undefined,
         };
+
+        const trimmedNote = customerNote?.trim();
+        if (trimmedNote) {
+          orderData.customerNote = trimmedNote;
+        }
 
         transaction.set(newOrderRef, orderData);
 

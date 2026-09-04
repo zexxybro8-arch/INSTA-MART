@@ -59,7 +59,7 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
     try {
       const depositId = `DEP${Math.floor(100000 + Math.random() * 900000)}`;
 
-      await addDoc(collection(db, 'deposits'), {
+      const depositData: Record<string, any> = {
         depositId: depositId,
         userId: profile.id,
         username: profile.username,
@@ -68,11 +68,17 @@ export const AddFundsModal: React.FC<AddFundsModalProps> = ({ isOpen, onClose })
         currency: profile.currency || 'INR',
         paymentMethod: paymentMethod,
         referenceId: referenceId.trim(),
-        notes: notes.trim() || undefined,
         status: 'Pending',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-      });
+      };
+
+      const trimmedNotes = notes?.trim();
+      if (trimmedNotes) {
+        depositData.notes = trimmedNotes;
+      }
+
+      await addDoc(collection(db, 'deposits'), depositData);
 
       success(`Deposit request #${depositId} submitted! Admin will verify and credit your wallet.`);
       onClose();

@@ -90,19 +90,25 @@ export const SupportView: React.FC = () => {
     try {
       const ticketIdStr = `TKT${Math.floor(10000 + Math.random() * 90000)}`;
 
-      const ticketRef = await addDoc(collection(db, 'tickets'), {
+      const ticketData: Record<string, any> = {
         ticketId: ticketIdStr,
         userId: profile.id,
         username: profile.username,
         userEmail: profile.email,
         subject: subject.trim(),
-        orderId: orderId.trim() || undefined,
         status: 'Open',
         priority: 'Medium',
         lastMessageAt: Date.now(),
         createdAt: Date.now(),
         updatedAt: Date.now(),
-      });
+      };
+
+      const trimmedOrderId = orderId?.trim();
+      if (trimmedOrderId) {
+        ticketData.orderId = trimmedOrderId;
+      }
+
+      const ticketRef = await addDoc(collection(db, 'tickets'), ticketData);
 
       // Add initial message
       await addDoc(collection(db, 'ticketMessages'), {

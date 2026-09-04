@@ -7,6 +7,7 @@ import {
   doc,
   updateDoc,
   runTransaction,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Order, OrderStatus } from '../../types';
@@ -151,12 +152,13 @@ export const AdminOrdersTab: React.FC = () => {
           }
 
           const orderRef = doc(db, 'orders', editingOrder.id);
+          const trimmedAdminNote = editAdminNote.trim();
           txn.update(orderRef, {
             status: editStatus,
             startCount: editStartCount,
             currentCount: editCurrentCount,
             remains: editRemains,
-            adminNote: editAdminNote.trim() || undefined,
+            adminNote: trimmedAdminNote ? trimmedAdminNote : deleteField(),
             updatedAt: Date.now(),
           });
         });
@@ -164,12 +166,13 @@ export const AdminOrdersTab: React.FC = () => {
         success(`Order #${editingOrder.orderId} updated & funds refunded to customer!`);
       } else {
         // Standard status and progress update
+        const trimmedAdminNote = editAdminNote.trim();
         await updateDoc(doc(db, 'orders', editingOrder.id), {
           status: editStatus,
           startCount: editStartCount,
           currentCount: editCurrentCount,
           remains: editRemains,
-          adminNote: editAdminNote.trim() || undefined,
+          adminNote: trimmedAdminNote ? trimmedAdminNote : deleteField(),
           updatedAt: Date.now(),
         });
         success(`Order #${editingOrder.orderId} updated successfully.`);
