@@ -156,19 +156,11 @@ export const AdminDepositSettingsTab: React.FC = () => {
   const handleSaveAmount = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const num = typeof inputAmount === 'number' ? inputAmount : parseInt(String(inputAmount), 10);
-    if (!num || isNaN(num) || num <= 0) {
-      error('Amount must be a whole positive integer in INR.');
-      return;
-    }
+    const rawVal = String(inputAmount).trim();
+    const num = Number(rawVal);
 
-    if (!Number.isInteger(num)) {
-      error('Amount must be a whole integer without decimals.');
-      return;
-    }
-
-    if (num > 1000) {
-      error('Maximum allowed deposit amount is ₹1000.');
+    if (!rawVal || isNaN(num) || num < 1 || num > 1000000 || !Number.isInteger(num)) {
+      error('Enter an amount between ₹1 and ₹10,00,000.');
       return;
     }
 
@@ -304,7 +296,7 @@ export const AdminDepositSettingsTab: React.FC = () => {
                 <span>Deposit Settings &amp; QR Control</span>
               </h2>
               <p className="text-xs text-purple-300/80">
-                Manage fixed deposit options (₹100 - ₹1000) and configure unique QR codes
+                Manage fixed deposit options (₹1 - ₹10,00,000) and configure unique QR codes
               </p>
             </div>
           </div>
@@ -387,7 +379,7 @@ export const AdminDepositSettingsTab: React.FC = () => {
             <span>Configured Deposit Amounts ({amounts.length})</span>
           </h3>
           <span className="text-[11px] text-slate-400">
-            Sorted ascending (₹100 - ₹1000)
+            Sorted ascending by amount
           </span>
         </div>
 
@@ -549,18 +541,30 @@ export const AdminDepositSettingsTab: React.FC = () => {
                     type="number"
                     required
                     min={1}
-                    max={1000}
+                    max={1000000}
                     step={1}
                     value={inputAmount}
-                    onChange={(e) =>
-                      setInputAmount(e.target.value === '' ? '' : parseInt(e.target.value, 10))
-                    }
-                    placeholder="e.g. 500"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setInputAmount('');
+                        return;
+                      }
+                      if (/^\d+$/.test(val)) {
+                        setInputAmount(parseInt(val, 10));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (['.', 'e', 'E', '-', '+', ','].includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    placeholder="e.g. 5200"
                     className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-purple-500 text-white font-mono text-sm transition"
                   />
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Whole INR integer (e.g. 100, 250, 500). Maximum allowed is ₹1000.
+                  Whole INR integer (e.g. 500, 5200, 10000). Enter an amount between ₹1 and ₹10,00,000.
                 </p>
               </div>
 
